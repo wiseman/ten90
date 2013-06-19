@@ -176,6 +176,35 @@
 
 /* ======================== structure declarations ========================= */
 
+/* Code for introducing a less CPU-intensive method of correcting
+ * single bit errors.
+ *
+ * Makes use of the fact that the crc checksum is linear with respect to
+ * the bitwise xor operation, i.e.
+ *      crc(m^e) = (crc(m)^crc(e)
+ * where m and e are the message resp. error bit vectors.
+ *
+ * Call crc(e) the syndrome.
+ *
+ * The code below works by precomputing a table of (crc(e), e) for all
+ * possible error vectors e (here only single bit and double bit errors),
+ * search for the syndrome in the table, and correct the then known error.
+ * The error vector e is represented by one or two bit positions that are
+ * changed. If a second bit position is not used, it is -1.
+ *
+ * Run-time is binary search in a sorted table, plus some constant overhead,
+ * instead of running through all possible bit positions (resp. pairs of
+ * bit positions).
+ *
+ *
+ *
+ */
+struct errorinfo {
+    uint32_t syndrome;                 // CRC syndrome
+    int      bits;                     // Number of bit positions to fix
+    int      pos[MODES_MAX_BITERRORS]; // Bit positions corrected by this syndrome
+};
+
 // Structure used to describe a networking client
 struct client {
     int  fd;                           // File descriptor
@@ -380,7 +409,19 @@ extern "C" {
 #endif
 
 int  detectModeA       (uint16_t *m, struct modesMessage *mm);
-void decodeModeAMessage(struct modesMessage *mm, int ModeA);
+void ten90_decode_mode_a_message(struct modesMessage *mm, int ModeA);
+void ten90_decode_mode_s_message(struct modesMessage *mm, unsigned char *msg);
+uint32_t ten90_mode_s_checksum(unsigned char *msg, int bits);
+void ten90_add_recently_seen_icao_addr(uint32_t addr);
+int ten90_icao_address_was_recently_seen(uint32_t addr);
+int ten90_decode_id13_field(int ID13Field);
+int ten90_decode_ac13_field(int AC13Field, int *unit);
+int ten90_decode_ac12_field(int AC12Field, int *unit);
+int ten90_decode_movement_field(int movement);
+int ten90_mode_a_to_mode_c(unsigned int ModeA);
+int ten90_mode_s_message_len_by_type(int type);
+int ten90_fix_bit_errors(unsigned char *msg, int bits, int maxfix, char *fixedbits);
+
 int  ModeAToModeC      (unsigned int ModeA);
 
 void interactiveShowData(void);
