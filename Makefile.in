@@ -87,12 +87,10 @@ libten90_la_LIBADD =
 am_libten90_la_OBJECTS = libten90.lo
 libten90_la_OBJECTS = $(am_libten90_la_OBJECTS)
 PROGRAMS = $(noinst_PROGRAMS)
-am__objects_1 = test_libten90-libten90.$(OBJEXT)
-am_test_libten90_OBJECTS = $(am__objects_1) \
-	test_libten90-test_libten90.$(OBJEXT)
+am_test_libten90_OBJECTS = test_libten90-test_libten90.$(OBJEXT)
 test_libten90_OBJECTS = $(am_test_libten90_OBJECTS)
 am__DEPENDENCIES_1 =
-test_libten90_DEPENDENCIES = $(am__DEPENDENCIES_1)
+test_libten90_DEPENDENCIES = $(am__DEPENDENCIES_1) libten90.la
 test_libten90_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(test_libten90_CFLAGS) \
 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
@@ -254,9 +252,13 @@ top_srcdir = @top_srcdir@
 lib_LTLIBRARIES = libten90.la
 libten90_la_SOURCES = libten90.c
 include_HEADERS = ten90.h
-test_libten90_SOURCES = $(libten90_la_SOURCES) test_libten90.c
+
+#dump1090_SOURCES = dump_1090.c
+#dump1090_CFLAGS = $(libten90_la_CFLAGS)
+#dump1090_LDADD = $(libten90_la_LIBADD)
+test_libten90_SOURCES = test_libten90.c
 test_libten90_CFLAGS = $(libten90_la_CFLAGS)
-test_libten90_LDADD = $(libten90_la_LIBADD)
+test_libten90_LDADD = $(libten90_la_LIBADD) libten90.la
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -364,7 +366,6 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libten90.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_libten90-libten90.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_libten90-test_libten90.Po@am__quote@
 
 .c.o:
@@ -387,20 +388,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
-
-test_libten90-libten90.o: libten90.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CFLAGS) $(CFLAGS) -MT test_libten90-libten90.o -MD -MP -MF $(DEPDIR)/test_libten90-libten90.Tpo -c -o test_libten90-libten90.o `test -f 'libten90.c' || echo '$(srcdir)/'`libten90.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/test_libten90-libten90.Tpo $(DEPDIR)/test_libten90-libten90.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='libten90.c' object='test_libten90-libten90.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CFLAGS) $(CFLAGS) -c -o test_libten90-libten90.o `test -f 'libten90.c' || echo '$(srcdir)/'`libten90.c
-
-test_libten90-libten90.obj: libten90.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CFLAGS) $(CFLAGS) -MT test_libten90-libten90.obj -MD -MP -MF $(DEPDIR)/test_libten90-libten90.Tpo -c -o test_libten90-libten90.obj `if test -f 'libten90.c'; then $(CYGPATH_W) 'libten90.c'; else $(CYGPATH_W) '$(srcdir)/libten90.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/test_libten90-libten90.Tpo $(DEPDIR)/test_libten90-libten90.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='libten90.c' object='test_libten90-libten90.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CFLAGS) $(CFLAGS) -c -o test_libten90-libten90.obj `if test -f 'libten90.c'; then $(CYGPATH_W) 'libten90.c'; else $(CYGPATH_W) '$(srcdir)/libten90.c'; fi`
 
 test_libten90-test_libten90.o: test_libten90.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CFLAGS) $(CFLAGS) -MT test_libten90-test_libten90.o -MD -MP -MF $(DEPDIR)/test_libten90-test_libten90.Tpo -c -o test_libten90-test_libten90.o `test -f 'test_libten90.c' || echo '$(srcdir)/'`test_libten90.c
