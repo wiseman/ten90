@@ -172,11 +172,10 @@ extern "C" {
 
 const char* ten90_version();
 int ten90_init();
-int ten90_detect_mode_a (uint16_t *m, ten90_mode_s_message *mm);
 int ten90_context_init(ten90_context *context);
 void ten90_context_destroy(ten90_context *context);
 int ten90_decode_hex_message(ten90_mode_s_message *mm, char *hex, ten90_context *context);
-  int ten90_decode_bin_message(ten90_mode_s_message *mm, char *p, ten90_context *context);
+int ten90_decode_bin_message(ten90_mode_s_message *mm, char *p, ten90_context *context);
 void ten90_decode_mode_a_message(ten90_mode_s_message *mm, int ModeA);
 void ten90_decode_mode_s_message(ten90_mode_s_message *mm, unsigned char *msg, ten90_context*);
 uint32_t ten90_mode_s_checksum(unsigned char *msg, int bits);
@@ -189,9 +188,7 @@ int ten90_decode_movement_field(int movement);
 int ten90_mode_a_to_mode_c(unsigned int ModeA);
 int ten90_mode_s_message_len_by_type(int type);
 int ten90_fix_bit_errors(unsigned char *msg, int bits, int maxfix, char *fixedbits);
-int ten90_detect_mode_a(uint16_t *m, ten90_mode_s_message *mm);
 int ten90_fix_single_bit_errors(unsigned char *msg, int bits);
-
 int ten90_mode_a_to_modec      (unsigned int ModeA);
 
 #ifdef __cplusplus
