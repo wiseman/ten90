@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.66])
-AC_INIT([libdump1090], [0.0.0], [jjwiseman@gmail.com])
+AC_INIT([libten90], [0.0.0], [jjwiseman@gmail.com])
 
 AM_INIT_AUTOMAKE([dist-bzip2])
 LT_INIT
@@ -11,6 +11,7 @@ AC_PROG_MAKE_SET
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_LIBTOOL
+AM_PROG_CC_C_O
 
 PKG_CHECK_MODULES(LIBRTLSDR, librtlsdr)
 LIBS="$LIBS $LIBRTLSDR_LIBS"
@@ -27,8 +28,8 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS([fcntl.h stdint.h stdlib.h string.h sys/time.h sys/timeb.h unistd.h])
 
 # pc variables
-AC_SUBST(dump1090_PC_LIBS,["$LIBS"])
-AC_SUBST(dump1090_PC_CFLAGS,["$CFLAGS"])
+AC_SUBST(ten90_PC_LIBS,["$LIBS"])
+AC_SUBST(ten90_PC_CFLAGS,["$CFLAGS"])
 
 AC_MSG_CHECKING(whether compiler understands -Wall)
 old_CFLAGS="$CFLAGS"
@@ -40,7 +41,7 @@ AC_TRY_COMPILE([],[],
 
 AC_CONFIG_MACRO_DIR([m4])
 
-AC_CONFIG_SRCDIR([libdump1090.c])
+AC_CONFIG_SRCDIR([libten90.c])
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile])

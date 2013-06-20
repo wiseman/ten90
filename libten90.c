@@ -1,4 +1,4 @@
-#include "dump1090.h"
+#include "ten90.h"
 
 #include <ctype.h>
 #include <string.h>
@@ -6,9 +6,6 @@
 int ten90_init_context(struct ten90_context *context)
 {
   memset(context, 0, sizeof(struct ten90_context));
-  fprintf(stderr, "creating cache of %ul entries * %d bytes\n",
-          MODES_ICAO_CACHE_LEN * 2,
-          sizeof(uint32_t));
   if ((context->icao_cache = (uint32_t *)calloc(MODES_ICAO_CACHE_LEN * 2, sizeof(uint32_t))) == NULL) {
     return -1;
   }

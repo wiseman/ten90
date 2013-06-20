@@ -1,12 +1,12 @@
-lib_LTLIBRARIES = libdump1090.la
+lib_LTLIBRARIES = libten90.la
 
-libdump1090_la_SOURCES = libdump1090.c
-include_HEADERS = dump1090.h
+libten90_la_SOURCES = libten90.c
+include_HEADERS = ten90.h
 
-noinst_PROGRAMS = test_libdump1090
+noinst_PROGRAMS = test_libten90
 
-test_libdump1090_SOURCES = $(libdump1090_la_SOURCES) test_libdump1090.c
-test_libdump1090_CFLAGS = $(libdump1090_la_CFLAGS)
-test_libdump1090_LDADD = $(libdump1090_la_LIBADD)
+test_libten90_SOURCES = $(libten90_la_SOURCES) test_libten90.c
+test_libten90_CFLAGS = $(libten90_la_CFLAGS)
+test_libten90_LDADD = $(libten90_la_LIBADD)
 
-TESTS = test_libdump1090
+TESTS = test_libten90
