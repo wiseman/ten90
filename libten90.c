@@ -1,7 +1,10 @@
 #include "ten90.h"
 
 #include <ctype.h>
+#include <math.h>
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 //
 // Turn an hex digit into its 4 bit decimal value.

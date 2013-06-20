@@ -30,6 +30,9 @@
 #ifndef __DUMP1090_H
 #define __DUMP1090_H
 
+#include <stdint.h>
+
+
 // File Version number
 // ====================
 // Format is : MajorVer.MinorVer.DayMonth.Year"
@@ -38,30 +41,6 @@
 // DayDate & Year changes for all changes, including for bug fixes. It represent the release date of the update
 //
 #define MODES_DUMP1090_VERSION     "1.07.2305.13"
-
-/* ============================= Include files ========================== */
-
-#ifndef _WIN32
-    #include <stdio.h>
-    #include <string.h>
-    #include <stdlib.h>
-    #include <pthread.h>
-    #include <stdint.h>
-    #include <errno.h>
-    #include <unistd.h>
-    #include <math.h>
-    #include <sys/time.h>
-    #include <sys/timeb.h>
-    #include <signal.h>
-    #include <fcntl.h>
-    #include <ctype.h>
-    #include <sys/stat.h>
-    #include "rtl-sdr.h"
-    #include "anet.h"
-#else
-    #include "winstubs.h" //Put everything Windows specific in here
-    #include "rtl-sdr.h"
-#endif
 
 /* ============================= #defines =============================== */
 

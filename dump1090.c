@@ -28,7 +28,30 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "ten90.h"
+/* ============================= Include files ========================== */
+
+#ifndef _WIN32
+    #include <stdio.h>
+    #include <string.h>
+    #include <stdlib.h>
+    #include <pthread.h>
+    #include <errno.h>
+    #include <unistd.h>
+    #include <signal.h>
+    #include <fcntl.h>
+    #include <math.h>
+    #include <sys/stat.h>
+    #include <sys/time.h>
+    #include <sys/timeb.h>
+    #include "rtl-sdr.h"
+    #include "ten90.h"
+    #include "anet.h"
+#else
+    #include "winstubs.h" //Put everything Windows specific in here
+    #include "rtl-sdr.h"
+    #include "ten90.h"
+#endif
+
 
 
 // Structure used to describe a networking client
