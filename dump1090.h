@@ -30,7 +30,7 @@
 #ifndef __DUMP1090_H
 #define __DUMP1090_H
 
-// File Version number 
+// File Version number
 // ====================
 // Format is : MajorVer.MinorVer.DayMonth.Year"
 // MajorVer changes only with significant changes
@@ -71,7 +71,7 @@
 #else
     #define MODES_USER_LATITUDE_DFLT   (0.0)
     #define MODES_USER_LONGITUDE_DFLT  (0.0)
-#endif 
+#endif
 
 #define MODES_DEFAULT_RATE         2000000
 #define MODES_DEFAULT_FREQ         1090000000
@@ -110,7 +110,7 @@
 #define MODES_LONG_MSG_SIZE     (MODES_LONG_MSG_SAMPLES  * sizeof(uint16_t))
 #define MODES_SHORT_MSG_SIZE    (MODES_SHORT_MSG_SAMPLES * sizeof(uint16_t))
 
-#define MODES_RAWOUT_BUF_SIZE   (1500)           
+#define MODES_RAWOUT_BUF_SIZE   (1500)
 #define MODES_RAWOUT_BUF_FLUSH  (MODES_RAWOUT_BUF_SIZE - 200)
 #define MODES_RAWOUT_BUF_RATE   (1000)            // 1000 * 64mS = 1 Min approx
 
@@ -133,12 +133,12 @@
 #define MODES_ACFLAGS_AOG            (1<<9)  // Aircraft is On the Ground
 #define MODES_ACFLAGS_LLEVEN_VALID   (1<<10) // Aircraft Even Lot/Lon is known
 #define MODES_ACFLAGS_LLODD_VALID    (1<<11) // Aircraft Odd Lot/Lon is known
-#define MODES_ACFLAGS_AOG_VALID      (1<<12) // MODES_ACFLAGS_AOG is valid 
-#define MODES_ACFLAGS_FS_VALID       (1<<13) // Aircraft Flight Status is known 
+#define MODES_ACFLAGS_AOG_VALID      (1<<12) // MODES_ACFLAGS_AOG is valid
+#define MODES_ACFLAGS_FS_VALID       (1<<13) // Aircraft Flight Status is known
 #define MODES_ACFLAGS_NSEWSPD_VALID  (1<<14) // Aircraft EW and NS Speed is known
 #define MODES_ACFLAGS_LATLON_REL_OK  (1<<15) // Indicates it's OK to do a relative CPR
 
-#define MODES_ACFLAGS_LLEITHER_VALID (MODES_ACFLAGS_LLEVEN_VALID | MODES_ACFLAGS_LLODD_VALID) 
+#define MODES_ACFLAGS_LLEITHER_VALID (MODES_ACFLAGS_LLEVEN_VALID | MODES_ACFLAGS_LLODD_VALID)
 #define MODES_ACFLAGS_LLBOTH_VALID   (MODES_ACFLAGS_LLEVEN_VALID | MODES_ACFLAGS_LLODD_VALID)
 #define MODES_ACFLAGS_AOG_GROUND     (MODES_ACFLAGS_AOG_VALID    | MODES_ACFLAGS_AOG)
 
@@ -336,7 +336,7 @@ struct {                             // Internal state
     // Histogram of fixed bit errors: index 0 for single bit erros,
     // index 1 for double bit errors etc.
     unsigned int stat_bit_fix[MODES_MAX_BITERRORS];
-							
+
     unsigned int stat_http_requests;
     unsigned int stat_sbs_connections;
     unsigned int stat_raw_connections;
@@ -352,7 +352,7 @@ struct {                             // Internal state
     // Histogram of fixed bit errors: index 0 for single bit erros,
     // index 1 for double bit errors etc.
     unsigned int stat_ph_bit_fix[MODES_MAX_BITERRORS];
-							
+
     unsigned int stat_DF_Len_Corrected;
     unsigned int stat_DF_Type_Corrected;
     unsigned int stat_ModeAC;
@@ -369,11 +369,11 @@ struct ten90_context {
 struct modesMessage {
     // Generic fields
     unsigned char msg[MODES_LONG_MSG_BYTES];      // Binary message.
-    int           msgbits;                        // Number of bits in message 
+    int           msgbits;                        // Number of bits in message
     int           msgtype;                        // Downlink format #
     int           crcok;                          // True if CRC was valid
     uint32_t      crc;                            // Message CRC
-    int           correctedbits;                  // No. of bits corrected 
+    int           correctedbits;                  // No. of bits corrected
     char          corrected[MODES_MAX_BITERRORS]; // corrected bit positions
     uint32_t      addr;                           // ICAO Address from bytes 1 2 and 3
     int           phase_corrected;                // True if phase correction was applied
@@ -405,7 +405,7 @@ struct modesMessage {
 
     // Fields used by multiple message types.
     int  altitude;
-    int  unit; 
+    int  unit;
     int  bFlags;                // Flags related to fields in this structure
 };
 
