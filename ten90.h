@@ -205,160 +205,6 @@ struct errorinfo {
     int      pos[MODES_MAX_BITERRORS]; // Bit positions corrected by this syndrome
 };
 
-// Structure used to describe a networking client
-struct client {
-    int  fd;                           // File descriptor
-    int  service;                      // TCP port the client is connected to
-    char buf[MODES_CLIENT_BUF_SIZE+1]; // Read buffer
-    int  buflen;                       // Amount of data on buffer
-};
-
-// Structure used to describe an aircraft in iteractive mode
-struct aircraft {
-    uint32_t      addr;           // ICAO address
-    char          flight[16];     // Flight number
-    unsigned char signalLevel[8]; // Last 8 Signal Amplitudes
-    int           altitude;       // Altitude
-    int           speed;          // Velocity
-    int           track;          // Angle of flight
-    int           vert_rate;      // Vertical rate.
-    time_t        seen;           // Time at which the last packet was received
-    time_t        seenLatLon;     // Time at which the last lat long was calculated
-    uint64_t      timestamp;      // Timestamp at which the last packet was received
-    uint64_t      timestampLatLon;// Timestamp at which the last lat long was calculated
-    long          messages;       // Number of Mode S messages received
-    int           modeA;          // Squawk
-    int           modeC;          // Altitude
-    long          modeAcount;     // Mode A Squawk hit Count
-    long          modeCcount;     // Mode C Altitude hit Count
-    int           modeACflags;    // Flags for mode A/C recognition
-
-    // Encoded latitude and longitude as extracted by odd and even CPR encoded messages
-    int           odd_cprlat;
-    int           odd_cprlon;
-    int           even_cprlat;
-    int           even_cprlon;
-    uint64_t      odd_cprtime;
-    uint64_t      even_cprtime;
-    double        lat, lon;       // Coordinated obtained from CPR encoded data
-    int           bFlags;         // Flags related to valid fields in this structure
-    struct aircraft *next;        // Next aircraft in our linked list
-};
-
-// Program global state
-struct {                             // Internal state
-    pthread_t       reader_thread;
-    pthread_mutex_t data_mutex;      // Mutex to synchronize buffer access
-    pthread_cond_t  data_cond;       // Conditional variable associated
-    uint16_t       *data;            // Raw IQ samples buffer
-    uint16_t       *magnitude;       // Magnitude vector
-    struct timeb    stSystemTimeRTL; // System time when RTL passed us the Latest block
-    uint64_t        timestampBlk;    // Timestamp of the start of the current block
-    struct timeb    stSystemTimeBlk; // System time when RTL passed us currently processing this block
-    int             fd;              // --ifile option file descriptor
-    int             data_ready;      // Data ready to be processed
-    uint32_t       *icao_cache;      // Recently seen ICAO addresses cache
-    uint16_t       *maglut;          // I/Q -> Magnitude lookup table
-    int             exit;            // Exit from the main loop when true
-
-    // RTLSDR
-    int           dev_index;
-    int           gain;
-    int           enable_agc;
-    rtlsdr_dev_t *dev;
-    int           freq;
-    int           ppm_error;
-
-    // Networking
-    char           aneterr[ANET_ERR_LEN];
-    struct client *clients[MODES_NET_MAX_FD]; // Our clients
-    int            maxfd;                     // Greatest fd currently active
-    int            sbsos;                     // SBS output listening socket
-    int            ros;                       // Raw output listening socket
-    int            ris;                       // Raw input listening socket
-    int            bos;                       // Beast output listening socket
-    int            bis;                       // Beast input listening socket
-    int            https;                     // HTTP listening socket
-    char          *rawOut;                    // Buffer for building raw output data
-    int            rawOutUsed;                // How much of the buffer is currently used
-    char          *beastOut;                  // Buffer for building beast output data
-    int            beastOutUsed;              // How much if the buffer is currently used
-
-    // Configuration
-    char *filename;                  // Input form file, --ifile option
-    int   phase_enhance;             // Enable phase enhancement if true
-    int   nfix_crc;                  // Number of crc bit error(s) to correct
-    int   check_crc;                 // Only display messages with good CRC
-    int   raw;                       // Raw output format
-    int   beast;                     // Beast binary format output
-    int   mode_ac;                   // Enable decoding of SSR Modes A & C
-    int   debug;                     // Debugging mode
-    int   net;                       // Enable networking
-    int   net_only;                  // Enable just networking
-    int   net_output_sbs_port;       // SBS output TCP port
-    int   net_output_raw_size;       // Minimum Size of the output raw data
-    int   net_output_raw_rate;       // Rate (in 64mS increments) of output raw data
-    int   net_output_raw_rate_count; // Rate (in 64mS increments) of output raw data
-    int   net_output_raw_port;       // Raw output TCP port
-    int   net_input_raw_port;        // Raw input TCP port
-    int   net_output_beast_port;     // Beast output TCP port
-    int   net_input_beast_port;      // Beast input TCP port
-    int   net_http_port;             // HTTP port
-    int   quiet;                     // Suppress stdout
-    int   interactive;               // Interactive mode
-    int   interactive_rows;          // Interactive mode: max number of rows
-    int   interactive_ttl;           // Interactive mode: TTL before deletion
-    int   stats;                     // Print stats at exit in --ifile mode
-    int   onlyaddr;                  // Print only ICAO addresses
-    int   metric;                    // Use metric units
-    int   mlat;                      // Use Beast ascii format for raw data output, i.e. @...; iso *...;
-    int   interactive_rtl1090;       // flight table in interactive mode is formatted like RTL1090
-
-    // User details
-    double fUserLat;                // Users receiver/antenna lat/lon needed for initial surface location
-    double fUserLon;                // Users receiver/antenna lat/lon needed for initial surface location
-    int    bUserFlags;              // Flags relating to the user details
-
-    // Interactive mode
-    struct aircraft *aircrafts;
-    uint64_t         interactive_last_update; // Last screen update in milliseconds
-
-    // Statistics
-    unsigned int stat_valid_preamble;
-    unsigned int stat_demodulated0;
-    unsigned int stat_demodulated1;
-    unsigned int stat_demodulated2;
-    unsigned int stat_demodulated3;
-    unsigned int stat_goodcrc;
-    unsigned int stat_badcrc;
-    unsigned int stat_fixed;
-
-    // Histogram of fixed bit errors: index 0 for single bit erros,
-    // index 1 for double bit errors etc.
-    unsigned int stat_bit_fix[MODES_MAX_BITERRORS];
-
-    unsigned int stat_http_requests;
-    unsigned int stat_sbs_connections;
-    unsigned int stat_raw_connections;
-    unsigned int stat_beast_connections;
-    unsigned int stat_out_of_phase;
-    unsigned int stat_ph_demodulated0;
-    unsigned int stat_ph_demodulated1;
-    unsigned int stat_ph_demodulated2;
-    unsigned int stat_ph_demodulated3;
-    unsigned int stat_ph_goodcrc;
-    unsigned int stat_ph_badcrc;
-    unsigned int stat_ph_fixed;
-    // Histogram of fixed bit errors: index 0 for single bit erros,
-    // index 1 for double bit errors etc.
-    unsigned int stat_ph_bit_fix[MODES_MAX_BITERRORS];
-
-    unsigned int stat_DF_Len_Corrected;
-    unsigned int stat_DF_Type_Corrected;
-    unsigned int stat_ModeAC;
-} Modes;
-
-
 typedef struct {
   uint32_t *icao_cache;      // Recently seen ICAO addresses cache
   int mode_ac;                   // Enable decoding of SSR Modes A & C
@@ -415,7 +261,8 @@ struct modesMessage {
 extern "C" {
 #endif
 
-int  detectModeA       (uint16_t *m, struct modesMessage *mm);
+int ten90_init();
+int ten90_detect_mode_a (uint16_t *m, struct modesMessage *mm);
 int ten90_context_init(ten90_context *context);
 void ten90_context_destroy(ten90_context *context);
 int ten90_decode_hex_message(struct modesMessage *mm, char *hex, ten90_context *context);
@@ -431,8 +278,10 @@ int ten90_decode_movement_field(int movement);
 int ten90_mode_a_to_mode_c(unsigned int ModeA);
 int ten90_mode_s_message_len_by_type(int type);
 int ten90_fix_bit_errors(unsigned char *msg, int bits, int maxfix, char *fixedbits);
+int ten90_detect_mode_a(uint16_t *m, struct modesMessage *mm);
+int ten90_fix_single_bit_errors(unsigned char *msg, int bits);
 
-int  ModeAToModeC      (unsigned int ModeA);
+int ten90_mode_a_to_modec      (unsigned int ModeA);
 
 void interactiveShowData(void);
 struct aircraft* interactiveReceiveData(struct modesMessage *mm);
@@ -441,11 +290,6 @@ void modesSendRawOutput   (struct modesMessage *mm);
 void modesSendBeastOutput (struct modesMessage *mm);
 void modesSendSBSOutput   (struct modesMessage *mm);
 void useModesMessage      (struct modesMessage *mm);
-
-int  fixBitErrors         (unsigned char *msg, int bits, int maxfix, char *fixedbits);
-
-void modesInitErrorInfo   ();
-int  modesMessageLenByType(int type);
 
 #ifdef __cplusplus
 }
