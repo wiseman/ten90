@@ -11,16 +11,13 @@
 *.so.*
 *.dylib
 
-# Executables
-*.exe
-*.out
-*.app
-
+# autotools stuff
 .deps
 .libs
 autom4te.cache
-
+aclocal.m4
 *.lo
 *.la
 
+# Emacs backups
 *~

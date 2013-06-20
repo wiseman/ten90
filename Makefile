@@ -18,10 +18,10 @@
 
 
 
-pkgdatadir = $(datadir)/libdump1090
-pkgincludedir = $(includedir)/libdump1090
-pkglibdir = $(libdir)/libdump1090
-pkglibexecdir = $(libexecdir)/libdump1090
+pkgdatadir = $(datadir)/libten90
+pkgincludedir = $(includedir)/libten90
+pkglibdir = $(libdir)/libten90
+pkglibexecdir = $(libexecdir)/libten90
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
 install_sh_DATA = $(install_sh) -c -m 644
 install_sh_PROGRAM = $(install_sh) -c
@@ -36,18 +36,16 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = x86_64-unknown-linux-gnu
 host_triplet = x86_64-unknown-linux-gnu
-noinst_PROGRAMS = test_libdump1090$(EXEEXT)
+noinst_PROGRAMS = test_libten90$(EXEEXT)
+TESTS = test_libten90$(EXEEXT)
 subdir = .
 DIST_COMMON = README $(am__configure_deps) $(include_HEADERS) \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/config.h.in $(top_srcdir)/configure AUTHORS COPYING \
-	ChangeLog INSTALL NEWS config.guess config.sub depcomp \
+	ChangeLog INSTALL NEWS compile config.guess config.sub depcomp \
 	install-sh ltmain.sh missing
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
-	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
-	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
-	$(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
@@ -85,18 +83,18 @@ am__uninstall_files_from_dir = { \
   }
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libdump1090_la_LIBADD =
-am_libdump1090_la_OBJECTS = libdump1090.lo
-libdump1090_la_OBJECTS = $(am_libdump1090_la_OBJECTS)
+libten90_la_LIBADD =
+am_libten90_la_OBJECTS = libten90.lo
+libten90_la_OBJECTS = $(am_libten90_la_OBJECTS)
 PROGRAMS = $(noinst_PROGRAMS)
-am__objects_1 = test_libdump1090-libdump1090.$(OBJEXT)
-am_test_libdump1090_OBJECTS = $(am__objects_1) \
-	test_libdump1090-test_libdump1090.$(OBJEXT)
-test_libdump1090_OBJECTS = $(am_test_libdump1090_OBJECTS)
+am__objects_1 = test_libten90-libten90.$(OBJEXT)
+am_test_libten90_OBJECTS = $(am__objects_1) \
+	test_libten90-test_libten90.$(OBJEXT)
+test_libten90_OBJECTS = $(am_test_libten90_OBJECTS)
 am__DEPENDENCIES_1 =
-test_libdump1090_DEPENDENCIES = $(am__DEPENDENCIES_1)
-test_libdump1090_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(test_libdump1090_CFLAGS) \
+test_libten90_DEPENDENCIES = $(am__DEPENDENCIES_1)
+test_libten90_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(test_libten90_CFLAGS) \
 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I.
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -111,8 +109,8 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(libdump1090_la_SOURCES) $(test_libdump1090_SOURCES)
-DIST_SOURCES = $(libdump1090_la_SOURCES) $(test_libdump1090_SOURCES)
+SOURCES = $(libten90_la_SOURCES) $(test_libten90_SOURCES)
+DIST_SOURCES = $(libten90_la_SOURCES) $(test_libten90_SOURCES)
 HEADERS = $(include_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -133,12 +131,12 @@ distuninstallcheck_listfiles = find . -type f -print
 am__distuninstallcheck_listfiles = $(distuninstallcheck_listfiles) \
   | sed 's|^\./|$(prefix)/|' | grep -v '$(infodir)/dir$$'
 distcleancheck_listfiles = find . -type f -print
-ACLOCAL = ${SHELL} /home/jwiseman/src/lib1090/missing --run aclocal-1.11
+ACLOCAL = ${SHELL} /home/jwiseman/src/ten90/missing --run aclocal-1.11
 AMTAR = $${TAR-tar}
 AR = ar
-AUTOCONF = ${SHELL} /home/jwiseman/src/lib1090/missing --run autoconf
-AUTOHEADER = ${SHELL} /home/jwiseman/src/lib1090/missing --run autoheader
-AUTOMAKE = ${SHELL} /home/jwiseman/src/lib1090/missing --run automake-1.11
+AUTOCONF = ${SHELL} /home/jwiseman/src/ten90/missing --run autoconf
+AUTOHEADER = ${SHELL} /home/jwiseman/src/ten90/missing --run autoheader
+AUTOMAKE = ${SHELL} /home/jwiseman/src/ten90/missing --run automake-1.11
 AWK = mawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
@@ -173,7 +171,7 @@ LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LIPO = 
 LN_S = ln -s
 LTLIBOBJS = 
-MAKEINFO = ${SHELL} /home/jwiseman/src/lib1090/missing --run makeinfo
+MAKEINFO = ${SHELL} /home/jwiseman/src/ten90/missing --run makeinfo
 MANIFEST_TOOL = :
 MKDIR_P = /bin/mkdir -p
 NM = /usr/bin/nm -B
@@ -182,11 +180,11 @@ OBJDUMP = objdump
 OBJEXT = o
 OTOOL = 
 OTOOL64 = 
-PACKAGE = libdump1090
+PACKAGE = libten90
 PACKAGE_BUGREPORT = jjwiseman@gmail.com
-PACKAGE_NAME = libdump1090
-PACKAGE_STRING = libdump1090 0.0.0
-PACKAGE_TARNAME = libdump1090
+PACKAGE_NAME = libten90
+PACKAGE_STRING = libten90 0.0.0
+PACKAGE_TARNAME = libten90
 PACKAGE_URL = 
 PACKAGE_VERSION = 0.0.0
 PATH_SEPARATOR = :
@@ -199,10 +197,10 @@ SET_MAKE =
 SHELL = /bin/bash
 STRIP = strip
 VERSION = 0.0.0
-abs_builddir = /home/jwiseman/src/lib1090
-abs_srcdir = /home/jwiseman/src/lib1090
-abs_top_builddir = /home/jwiseman/src/lib1090
-abs_top_srcdir = /home/jwiseman/src/lib1090
+abs_builddir = /home/jwiseman/src/ten90
+abs_srcdir = /home/jwiseman/src/ten90
+abs_top_builddir = /home/jwiseman/src/ten90
+abs_top_srcdir = /home/jwiseman/src/ten90
 ac_ct_AR = ar
 ac_ct_CC = gcc
 ac_ct_DUMPBIN = 
@@ -221,8 +219,6 @@ builddir = .
 datadir = ${datarootdir}
 datarootdir = ${prefix}/share
 docdir = ${datarootdir}/doc/${PACKAGE_TARNAME}
-dump1090_PC_CFLAGS = -g -O2 -I/usr/local/include/ -I/usr/include/libusb-1.0  
-dump1090_PC_LIBS =  -L/usr/local/lib -lrtlsdr -lusb-1.0   -lpthread -lm
 dvidir = ${docdir}
 exec_prefix = ${prefix}
 host = x86_64-unknown-linux-gnu
@@ -233,7 +229,7 @@ host_vendor = unknown
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = ${SHELL} /home/jwiseman/src/lib1090/install-sh
+install_sh = ${SHELL} /home/jwiseman/src/ten90/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
@@ -250,17 +246,17 @@ sharedstatedir = ${prefix}/com
 srcdir = .
 sysconfdir = ${prefix}/etc
 target_alias = 
+ten90_PC_CFLAGS = -g -O2 -I/usr/local/include/ -I/usr/include/libusb-1.0  
+ten90_PC_LIBS =  -L/usr/local/lib -lrtlsdr -lusb-1.0   -lpthread -lm
 top_build_prefix = 
 top_builddir = .
 top_srcdir = .
-ACLOCAL_AMFLAGS = -I m4
-lib_LTLIBRARIES = libdump1090.la
-libdump1090_la_SOURCES = libdump1090.c
-include_HEADERS = dump1090.h
-test_libdump1090_SOURCES = $(libdump1090_la_SOURCES) test_libdump1090.c
-test_libdump1090_CFLAGS = $(libdump1090_la_CFLAGS)
-test_libdump1090_LDADD = $(libdump1090_la_LIBADD)
-TESTS = test_audio_manager
+lib_LTLIBRARIES = libten90.la
+libten90_la_SOURCES = libten90.c
+include_HEADERS = ten90.h
+test_libten90_SOURCES = $(libten90_la_SOURCES) test_libten90.c
+test_libten90_CFLAGS = $(libten90_la_CFLAGS)
+test_libten90_LDADD = $(libten90_la_LIBADD)
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -346,8 +342,8 @@ clean-libLTLIBRARIES:
 	  echo "rm -f \"$${dir}/so_locations\""; \
 	  rm -f "$${dir}/so_locations"; \
 	done
-libdump1090.la: $(libdump1090_la_OBJECTS) $(libdump1090_la_DEPENDENCIES) $(EXTRA_libdump1090_la_DEPENDENCIES) 
-	$(LINK) -rpath $(libdir) $(libdump1090_la_OBJECTS) $(libdump1090_la_LIBADD) $(LIBS)
+libten90.la: $(libten90_la_OBJECTS) $(libten90_la_DEPENDENCIES) $(EXTRA_libten90_la_DEPENDENCIES) 
+	$(LINK) -rpath $(libdir) $(libten90_la_OBJECTS) $(libten90_la_LIBADD) $(LIBS)
 
 clean-noinstPROGRAMS:
 	@list='$(noinst_PROGRAMS)'; test -n "$$list" || exit 0; \
@@ -357,9 +353,9 @@ clean-noinstPROGRAMS:
 	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
 	echo " rm -f" $$list; \
 	rm -f $$list
-test_libdump1090$(EXEEXT): $(test_libdump1090_OBJECTS) $(test_libdump1090_DEPENDENCIES) $(EXTRA_test_libdump1090_DEPENDENCIES) 
-	@rm -f test_libdump1090$(EXEEXT)
-	$(test_libdump1090_LINK) $(test_libdump1090_OBJECTS) $(test_libdump1090_LDADD) $(LIBS)
+test_libten90$(EXEEXT): $(test_libten90_OBJECTS) $(test_libten90_DEPENDENCIES) $(EXTRA_test_libten90_DEPENDENCIES) 
+	@rm -f test_libten90$(EXEEXT)
+	$(test_libten90_LINK) $(test_libten90_OBJECTS) $(test_libten90_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -367,9 +363,9 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-include ./$(DEPDIR)/libdump1090.Plo
-include ./$(DEPDIR)/test_libdump1090-libdump1090.Po
-include ./$(DEPDIR)/test_libdump1090-test_libdump1090.Po
+include ./$(DEPDIR)/libten90.Plo
+include ./$(DEPDIR)/test_libten90-libten90.Po
+include ./$(DEPDIR)/test_libten90-test_libten90.Po
 
 .c.o:
 	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -392,33 +388,33 @@ include ./$(DEPDIR)/test_libdump1090-test_libdump1090.Po
 #	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
 #	$(LTCOMPILE) -c -o $@ $<
 
-test_libdump1090-libdump1090.o: libdump1090.c
-	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -MT test_libdump1090-libdump1090.o -MD -MP -MF $(DEPDIR)/test_libdump1090-libdump1090.Tpo -c -o test_libdump1090-libdump1090.o `test -f 'libdump1090.c' || echo '$(srcdir)/'`libdump1090.c
-	$(am__mv) $(DEPDIR)/test_libdump1090-libdump1090.Tpo $(DEPDIR)/test_libdump1090-libdump1090.Po
-#	source='libdump1090.c' object='test_libdump1090-libdump1090.o' libtool=no \
+test_libten90-libten90.o: libten90.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CFLAGS) $(CFLAGS) -MT test_libten90-libten90.o -MD -MP -MF $(DEPDIR)/test_libten90-libten90.Tpo -c -o test_libten90-libten90.o `test -f 'libten90.c' || echo '$(srcdir)/'`libten90.c
+	$(am__mv) $(DEPDIR)/test_libten90-libten90.Tpo $(DEPDIR)/test_libten90-libten90.Po
+#	source='libten90.c' object='test_libten90-libten90.o' libtool=no \
 #	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -c -o test_libdump1090-libdump1090.o `test -f 'libdump1090.c' || echo '$(srcdir)/'`libdump1090.c
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CFLAGS) $(CFLAGS) -c -o test_libten90-libten90.o `test -f 'libten90.c' || echo '$(srcdir)/'`libten90.c
 
-test_libdump1090-libdump1090.obj: libdump1090.c
-	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -MT test_libdump1090-libdump1090.obj -MD -MP -MF $(DEPDIR)/test_libdump1090-libdump1090.Tpo -c -o test_libdump1090-libdump1090.obj `if test -f 'libdump1090.c'; then $(CYGPATH_W) 'libdump1090.c'; else $(CYGPATH_W) '$(srcdir)/libdump1090.c'; fi`
-	$(am__mv) $(DEPDIR)/test_libdump1090-libdump1090.Tpo $(DEPDIR)/test_libdump1090-libdump1090.Po
-#	source='libdump1090.c' object='test_libdump1090-libdump1090.obj' libtool=no \
+test_libten90-libten90.obj: libten90.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CFLAGS) $(CFLAGS) -MT test_libten90-libten90.obj -MD -MP -MF $(DEPDIR)/test_libten90-libten90.Tpo -c -o test_libten90-libten90.obj `if test -f 'libten90.c'; then $(CYGPATH_W) 'libten90.c'; else $(CYGPATH_W) '$(srcdir)/libten90.c'; fi`
+	$(am__mv) $(DEPDIR)/test_libten90-libten90.Tpo $(DEPDIR)/test_libten90-libten90.Po
+#	source='libten90.c' object='test_libten90-libten90.obj' libtool=no \
 #	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -c -o test_libdump1090-libdump1090.obj `if test -f 'libdump1090.c'; then $(CYGPATH_W) 'libdump1090.c'; else $(CYGPATH_W) '$(srcdir)/libdump1090.c'; fi`
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CFLAGS) $(CFLAGS) -c -o test_libten90-libten90.obj `if test -f 'libten90.c'; then $(CYGPATH_W) 'libten90.c'; else $(CYGPATH_W) '$(srcdir)/libten90.c'; fi`
 
-test_libdump1090-test_libdump1090.o: test_libdump1090.c
-	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -MT test_libdump1090-test_libdump1090.o -MD -MP -MF $(DEPDIR)/test_libdump1090-test_libdump1090.Tpo -c -o test_libdump1090-test_libdump1090.o `test -f 'test_libdump1090.c' || echo '$(srcdir)/'`test_libdump1090.c
-	$(am__mv) $(DEPDIR)/test_libdump1090-test_libdump1090.Tpo $(DEPDIR)/test_libdump1090-test_libdump1090.Po
-#	source='test_libdump1090.c' object='test_libdump1090-test_libdump1090.o' libtool=no \
+test_libten90-test_libten90.o: test_libten90.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CFLAGS) $(CFLAGS) -MT test_libten90-test_libten90.o -MD -MP -MF $(DEPDIR)/test_libten90-test_libten90.Tpo -c -o test_libten90-test_libten90.o `test -f 'test_libten90.c' || echo '$(srcdir)/'`test_libten90.c
+	$(am__mv) $(DEPDIR)/test_libten90-test_libten90.Tpo $(DEPDIR)/test_libten90-test_libten90.Po
+#	source='test_libten90.c' object='test_libten90-test_libten90.o' libtool=no \
 #	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -c -o test_libdump1090-test_libdump1090.o `test -f 'test_libdump1090.c' || echo '$(srcdir)/'`test_libdump1090.c
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CFLAGS) $(CFLAGS) -c -o test_libten90-test_libten90.o `test -f 'test_libten90.c' || echo '$(srcdir)/'`test_libten90.c
 
-test_libdump1090-test_libdump1090.obj: test_libdump1090.c
-	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -MT test_libdump1090-test_libdump1090.obj -MD -MP -MF $(DEPDIR)/test_libdump1090-test_libdump1090.Tpo -c -o test_libdump1090-test_libdump1090.obj `if test -f 'test_libdump1090.c'; then $(CYGPATH_W) 'test_libdump1090.c'; else $(CYGPATH_W) '$(srcdir)/test_libdump1090.c'; fi`
-	$(am__mv) $(DEPDIR)/test_libdump1090-test_libdump1090.Tpo $(DEPDIR)/test_libdump1090-test_libdump1090.Po
-#	source='test_libdump1090.c' object='test_libdump1090-test_libdump1090.obj' libtool=no \
+test_libten90-test_libten90.obj: test_libten90.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CFLAGS) $(CFLAGS) -MT test_libten90-test_libten90.obj -MD -MP -MF $(DEPDIR)/test_libten90-test_libten90.Tpo -c -o test_libten90-test_libten90.obj `if test -f 'test_libten90.c'; then $(CYGPATH_W) 'test_libten90.c'; else $(CYGPATH_W) '$(srcdir)/test_libten90.c'; fi`
+	$(am__mv) $(DEPDIR)/test_libten90-test_libten90.Tpo $(DEPDIR)/test_libten90-test_libten90.Po
+#	source='test_libten90.c' object='test_libten90-test_libten90.obj' libtool=no \
 #	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -c -o test_libdump1090-test_libdump1090.obj `if test -f 'test_libdump1090.c'; then $(CYGPATH_W) 'test_libdump1090.c'; else $(CYGPATH_W) '$(srcdir)/test_libdump1090.c'; fi`
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CFLAGS) $(CFLAGS) -c -o test_libten90-test_libten90.obj `if test -f 'test_libten90.c'; then $(CYGPATH_W) 'test_libten90.c'; else $(CYGPATH_W) '$(srcdir)/test_libten90.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
