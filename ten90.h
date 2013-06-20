@@ -152,6 +152,7 @@ int ten90_decode_hex_message(ten90_mode_s_message *mm, char *hex, ten90_context 
 int ten90_decode_bin_message(ten90_mode_s_message *mm, char *p, ten90_context *context);
 void ten90_decode_mode_a_message(ten90_mode_s_message *mm, int ModeA);
 void ten90_decode_mode_s_message(ten90_mode_s_message *mm, unsigned char *msg, ten90_context*);
+
 uint32_t ten90_mode_s_checksum(unsigned char *msg, int bits);
 void ten90_add_recently_seen_icao_addr(uint32_t addr, ten90_context*);
 int ten90_icao_address_was_recently_seen(uint32_t addr, ten90_context*);
@@ -163,7 +164,7 @@ int ten90_mode_a_to_mode_c(unsigned int ModeA);
 int ten90_mode_s_message_len_by_type(int type);
 int ten90_fix_bit_errors(unsigned char *msg, int bits, int maxfix, char *fixedbits);
 int ten90_fix_single_bit_errors(unsigned char *msg, int bits);
-int ten90_mode_a_to_modec      (unsigned int ModeA);
+int ten90_mode_a_to_modec(unsigned int ModeA);
 
 #ifdef __cplusplus
 }
