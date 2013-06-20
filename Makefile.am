@@ -1,5 +1,3 @@
-ACLOCAL_AMFLAGS = -I m4
-
 lib_LTLIBRARIES = libdump1090.la
 
 libdump1090_la_SOURCES = libdump1090.c
