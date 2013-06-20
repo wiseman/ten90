@@ -164,6 +164,7 @@ int ten90_mode_s_message_len_by_type(int type);
 int ten90_fix_bit_errors(unsigned char *msg, int bits, int maxfix, char *fixedbits);
 int ten90_fix_single_bit_errors(unsigned char *msg, int bits);
 int ten90_mode_a_to_modec(unsigned int ModeA);
+void ten90_display_mode_s_message(ten90_mode_s_message *mm);
 
 #ifdef __cplusplus
 }
