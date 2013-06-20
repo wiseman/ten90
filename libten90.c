@@ -3,13 +3,18 @@
 #include <ctype.h>
 #include <string.h>
 
-int ten90_init_context(struct ten90_context *context)
+int ten90_context_init(ten90_context *context)
 {
-  memset(context, 0, sizeof(struct ten90_context));
+  memset(context, 0, sizeof(ten90_context));
   if ((context->icao_cache = (uint32_t *)calloc(MODES_ICAO_CACHE_LEN * 2, sizeof(uint32_t))) == NULL) {
     return -1;
   }
   return 0;
+}
+
+void ten90_context_destroy(ten90_context *context)
+{
+  free(context->icao_cache);
 }
 
 //
@@ -32,7 +37,7 @@ static int hexDigitVal(int c) {
 //
 // The function always returns 0 (success) to the caller as there is no
 // case where we want broken messages here to close the client connection.
-int ten90_decode_hex_message(struct modesMessage *mm, char *hex, struct ten90_context *context) {
+int ten90_decode_hex_message(struct modesMessage *mm, char *hex, ten90_context *context) {
     int l = strlen(hex), j;
     unsigned char msg[MODES_LONG_MSG_BYTES];
     memset(mm, 0, sizeof(mm));
@@ -107,7 +112,7 @@ int ten90_decode_hex_message(struct modesMessage *mm, char *hex, struct ten90_co
 // and split it into fields populating a modesMessage structure.
 //
 void ten90_decode_mode_s_message(struct modesMessage *mm, unsigned char *msg,
-                                 struct ten90_context *context) {
+                                 ten90_context *context) {
     char *ais_charset = "?ABCDEFGHIJKLMNOPQRSTUVWXYZ????? ???????????????0123456789??????";
 
     // Work on our local copy
@@ -482,7 +487,7 @@ uint32_t ten90_icao_cache_hash_address(uint32_t a) {
 /* Add the specified entry to the cache of recently seen ICAO addresses.
  * Note that we also add a timestamp so that we can make sure that the
  * entry is only valid for MODES_ICAO_CACHE_TTL seconds. */
-void ten90_add_recently_seen_icao_addr(uint32_t addr, struct ten90_context *context) {
+void ten90_add_recently_seen_icao_addr(uint32_t addr, ten90_context *context) {
     uint32_t h = ten90_icao_cache_hash_address(addr);
     context->icao_cache[h*2] = addr;
     context->icao_cache[h*2+1] = (uint32_t) time(NULL);
@@ -491,7 +496,7 @@ void ten90_add_recently_seen_icao_addr(uint32_t addr, struct ten90_context *cont
 /* Returns 1 if the specified ICAO address was seen in a DF format with
  * proper checksum (not xored with address) no more than * MODES_ICAO_CACHE_TTL
  * seconds ago. Otherwise returns 0. */
-int ten90_icao_address_was_recently_seen(uint32_t addr, struct ten90_context *context) {
+int ten90_icao_address_was_recently_seen(uint32_t addr, ten90_context *context) {
     uint32_t h = ten90_icao_cache_hash_address(addr);
     uint32_t a = context->icao_cache[h*2];
     uint32_t t = context->icao_cache[h*2+1];
