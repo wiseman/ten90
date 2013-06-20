@@ -14,7 +14,7 @@ int main(void) {
     IID:          II-00
   */
   char *s = "*59a93780f4a6da;";
-  struct modesMessage mm;
+  ten90_mode_s_message mm;
   ten90_decode_hex_message(&mm, s, &context);
   assert(mm.addr == 0xa93780);
   assert(mm.msgtype == 11);

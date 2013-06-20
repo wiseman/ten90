@@ -53,6 +53,40 @@
 #endif
 
 
+#define DUMP1090_VERSION "2.0.0"
+
+#ifdef USER_LATITUDE
+    #define MODES_USER_LATITUDE_DFLT   (USER_LATITUDE)
+    #define MODES_USER_LONGITUDE_DFLT  (USER_LONGITUDE)
+#else
+    #define MODES_USER_LATITUDE_DFLT   (0.0)
+    #define MODES_USER_LONGITUDE_DFLT  (0.0)
+#endif
+
+#define MODES_DEFAULT_RATE         2000000
+#define MODES_DEFAULT_FREQ         1090000000
+#define MODES_DEFAULT_WIDTH        1000
+#define MODES_DEFAULT_HEIGHT       700
+#define MODES_ASYNC_BUF_NUMBER     12
+#define MODES_ASYNC_BUF_SIZE       (16*16384)                 // 256k
+#define MODES_ASYNC_BUF_SAMPLES    (MODES_ASYNC_BUF_SIZE / 2) // Each sample is 2 bytes
+#define MODES_AUTO_GAIN            -100                       // Use automatic gain
+#define MODES_MAX_GAIN             999999                     // Use max available gain
+#define MODES_MSG_SQUELCH_LEVEL    0x02FF                     // Average signal strength limit
+#define MODES_MSG_ENCODER_ERRS     3                          // Maximum number of encoding errors
+
+#define MODES_RAWOUT_BUF_SIZE   (1500)
+#define MODES_RAWOUT_BUF_FLUSH  (MODES_RAWOUT_BUF_SIZE - 200)
+#define MODES_RAWOUT_BUF_RATE   (1000)            // 1000 * 64mS = 1 Min approx
+
+#define MODES_USER_LATLON_VALID (1<<0)
+
+#ifndef HTMLPATH
+#define HTMLPATH   "./public_html"      // default path for gmap.html etc
+#endif
+
+#define MODES_NOTUSED(V) ((void) V)
+
 
 // Structure used to describe a networking client
 struct client {
@@ -208,6 +242,14 @@ struct {                             // Internal state
     unsigned int stat_ModeAC;
 } Modes;
 
+
+void interactiveShowData(void);
+struct aircraft* interactiveReceiveData(ten90_mode_s_message *mm);
+void modesSendAllClients  (int service, void *msg, int len);
+void modesSendRawOutput   (ten90_mode_s_message *mm);
+void modesSendBeastOutput (ten90_mode_s_message *mm);
+void modesSendSBSOutput   (ten90_mode_s_message *mm);
+void useModesMessage      (ten90_mode_s_message *mm);
 
 /* ============================= Utility functions ========================== */
 
@@ -843,7 +885,7 @@ char *getMEDescription(int metype, int mesub) {
 // This function gets a decoded Mode S Message and prints it on the screen
 // in a human readable format.
 //
-void displayModesMessage(struct modesMessage *mm) {
+void displayModesMessage(ten90_mode_s_message *mm) {
     int j;
     unsigned char * pTimeStamp;
 
@@ -1150,7 +1192,7 @@ void applyPhaseCorrection(uint16_t *pPayload) {
  * size 'mlen' bytes. Every detected Mode S message is convert it into a
  * stream of bits and passed to the function to display it. */
 void detectModeS(uint16_t *m, uint32_t mlen) {
-    struct modesMessage mm;
+    ten90_mode_s_message mm;
     unsigned char msg[MODES_LONG_MSG_BYTES], *pMsg;
     uint16_t aux[MODES_LONG_MSG_SAMPLES];
     uint32_t j;
@@ -1192,7 +1234,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 
         // Rather than clear the whole mm structure, just clear the parts which are required. The clear
         // is required for every bit of the input stream, and we don't want to be memset-ing the whole
-        // modesMessage structure two million times per second if we don't have to..
+        // ten90_mode_s_message structure two million times per second if we don't have to..
         mm.bFlags          =
         mm.crcok           =
         mm.correctedbits   = 0;
@@ -1519,7 +1561,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 // Basically this function passes a raw message to the upper layers for further
 // processing and visualization
 //
-void useModesMessage(struct modesMessage *mm) {
+void useModesMessage(ten90_mode_s_message *mm) {
     if ((Modes.check_crc == 0) || (mm->crcok) || (mm->correctedbits)) { // not checking, ok or fixed
 
         // Track aircrafts if...
@@ -1547,7 +1589,7 @@ void useModesMessage(struct modesMessage *mm) {
 // Return a new aircraft structure for the interactive mode linked list
 // of aircraft
 //
-struct aircraft *interactiveCreateAircraft(struct modesMessage *mm) {
+struct aircraft *interactiveCreateAircraft(ten90_mode_s_message *mm) {
     struct aircraft *a = (struct aircraft *) malloc(sizeof(*a));
 
     // Default everything to zero/NULL
@@ -1887,7 +1929,7 @@ int decodeCPRrelative(struct aircraft *a, int fflag, int surface) {
 }
 
 /* Receive new messages and populate the interactive mode with more info. */
-struct aircraft *interactiveReceiveData(struct modesMessage *mm) {
+struct aircraft *interactiveReceiveData(ten90_mode_s_message *mm) {
     struct aircraft *a, *aux;
 
     // Return if (checking crc) AND (not crcok) AND (not fixed)
@@ -2312,7 +2354,7 @@ void modesSendAllClients(int service, void *msg, int len) {
 }
 
 /* Write raw output in Beast Binary format with Timestamp to TCP clients */
-void modesSendBeastOutput(struct modesMessage *mm) {
+void modesSendBeastOutput(ten90_mode_s_message *mm) {
     char *p = &Modes.beastOut[Modes.beastOutUsed];
     int  msgLen = mm->msgbits / 8;
     char * pTimeStamp;
@@ -2347,7 +2389,7 @@ void modesSendBeastOutput(struct modesMessage *mm) {
 }
 
 /* Write raw output to TCP clients. */
-void modesSendRawOutput(struct modesMessage *mm) {
+void modesSendRawOutput(ten90_mode_s_message *mm) {
     char *p = &Modes.rawOut[Modes.rawOutUsed];
     int  msgLen = mm->msgbits / 8;
     int j;
@@ -2384,7 +2426,7 @@ void modesSendRawOutput(struct modesMessage *mm) {
 // Write SBS output to TCP clients
 // The message structure mm->bFlags tells us what has been updated by this message
 //
-void modesSendSBSOutput(struct modesMessage *mm) {
+void modesSendSBSOutput(ten90_mode_s_message *mm) {
     char msg[256], *p = msg;
     uint32_t     offset;
     struct timeb epocTime;
@@ -2539,8 +2581,8 @@ void modesSendSBSOutput(struct modesMessage *mm) {
 //
 // The function always returns 0 (success) to the caller as there is no
 // case where we want broken messages here to close the client connection.
-int DecodeHexMessage(struct client *c, char *hex) {
-  struct modesMessage mm;
+int decodeHexMessage(struct client *c, char *hex) {
+  ten90_mode_s_message mm;
   memset(&mm, 0, sizeof(mm));
   mm.signalLevel = 0xFF;
   if (ten90_decode_hex_message(&mm, hex, &Modes.ctx)) {
@@ -2564,37 +2606,16 @@ int DecodeHexMessage(struct client *c, char *hex) {
 // The function always returns 0 (success) to the caller as there is no
 // case where we want broken messages here to close the client connection.
 int decodeBinMessage(struct client *c, char *p) {
-    int msgLen = 0;
-    unsigned char msg[MODES_LONG_MSG_BYTES];
-    struct modesMessage mm;
-    MODES_NOTUSED(c);
-    memset(&mm, 0, sizeof(mm));
-
-    if ((*p == '1') && (Modes.mode_ac)) { // skip ModeA/C unless user enables --modes-ac
-        msgLen = MODEAC_MSG_BYTES;
-    } else if (*p == '2') {
-        msgLen = MODES_SHORT_MSG_BYTES;
-    } else if (*p == '3') {
-        msgLen = MODES_LONG_MSG_BYTES;
-    }
-
-    if (msgLen) {
-        // Mark messages received over the internet as remote so that we don't try to
-        // pass them off as being received by this instance when forwarding them
-        mm.remote      =    1;
-        p += 7;                 // Skip the timestamp
-        mm.signalLevel = *p++;  // Grab the signal level
-        memcpy(msg, p, msgLen); // and the data
-
-        if (msgLen == MODEAC_MSG_BYTES) { // ModeA or ModeC
-            ten90_decode_mode_a_message(&mm, ((msg[0] << 8) | msg[1]));
-        } else {
-          ten90_decode_mode_s_message(&mm, msg, &Modes.ctx);
-        }
-
-        useModesMessage(&mm);
-    }
-    return (0);
+  ten90_mode_s_message mm;
+  memset(&mm, 0, sizeof(mm));
+  if (ten90_decode_bin_message(&mm, p, &Modes.ctx)) {
+  } else {
+    // Mark messages received over the internet as remote so that we don't try to
+    // pass them off as being received by this instance when forwarding them
+    mm.remote = 1;
+    useModesMessage(&mm);
+ }
+  return 0;
 }
 /* Return a description of planes in json. */
 char *aircraftsToJson(int *len) {
@@ -2890,7 +2911,7 @@ void modesReadFromClients(void) {
     for (j = 0; j <= Modes.maxfd; j++) {
         if ((c = Modes.clients[j]) == NULL) continue;
         if (c->service == Modes.ris)
-            modesReadFromClient(c,"\n", DecodeHexMessage);
+            modesReadFromClient(c,"\n", decodeHexMessage);
         else if (c->service == Modes.bis)
             modesReadFromClient(c,"",decodeBinMessage);
         else if (c->service == Modes.https)
@@ -2903,7 +2924,7 @@ void modesReadFromClients(void) {
 void showHelp(void) {
     printf(
 "-----------------------------------------------------------------------------\n"
-"|                        dump1090 ModeS Receiver         Ver : " MODES_DUMP1090_VERSION " |\n"
+"|                        dump1090 ModeS Receiver         Ver : " DUMP1090_VERSION " |\n"
 "-----------------------------------------------------------------------------\n"
 "--device-index <index>   Select RTL device (default: 0)\n"
 "--gain <db>              Set gain (default: max gain. Use -100 for auto-gain)\n"

@@ -1,75 +1,48 @@
-/* dump1090, a Mode S messages decoder for RTLSDR devices.
+/* ten90, a Mode S/A/C message decoding library.
  *
  * Copyright (C) 2012 by Salvatore Sanfilippo <antirez@gmail.com>
+ * Copyright 2013 John Wiseman <jjwiseman@gmail.com>
  *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
+ * modification, are permitted provided that the following conditions
+ * are met:
  *
- *  *  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
  *
- *  *  Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution.
+ *  * Redistributions in binary form must reproduce the above
+ *    copyright notice, this list of conditions and the following
+ *    disclaimer in the documentation and/or other materials provided
+ *    with the distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef __DUMP1090_H
-#define __DUMP1090_H
+#ifndef __TEN90_H
+#define __TEN90_H
 
 #include <stdint.h>
 
-
-// File Version number
-// ====================
-// Format is : MajorVer.MinorVer.DayMonth.Year"
-// MajorVer changes only with significant changes
-// MinorVer changes when additional features are added, but not for bug fixes (range 00-99)
-// DayDate & Year changes for all changes, including for bug fixes. It represent the release date of the update
-//
-#define MODES_DUMP1090_VERSION     "1.07.2305.13"
-
 /* ============================= #defines =============================== */
 
-#ifdef USER_LATITUDE
-    #define MODES_USER_LATITUDE_DFLT   (USER_LATITUDE)
-    #define MODES_USER_LONGITUDE_DFLT  (USER_LONGITUDE)
-#else
-    #define MODES_USER_LATITUDE_DFLT   (0.0)
-    #define MODES_USER_LONGITUDE_DFLT  (0.0)
-#endif
-
-#define MODES_DEFAULT_RATE         2000000
-#define MODES_DEFAULT_FREQ         1090000000
-#define MODES_DEFAULT_WIDTH        1000
-#define MODES_DEFAULT_HEIGHT       700
-#define MODES_ASYNC_BUF_NUMBER     12
-#define MODES_ASYNC_BUF_SIZE       (16*16384)                 // 256k
-#define MODES_ASYNC_BUF_SAMPLES    (MODES_ASYNC_BUF_SIZE / 2) // Each sample is 2 bytes
-#define MODES_AUTO_GAIN            -100                       // Use automatic gain
-#define MODES_MAX_GAIN             999999                     // Use max available gain
-#define MODES_MSG_SQUELCH_LEVEL    0x02FF                     // Average signal strength limit
-#define MODES_MSG_ENCODER_ERRS     3                          // Maximum number of encoding errors
-
 // When changing, change also fixBitErrors() and modesInitErrorTable() !!
-#define MODES_MAX_BITERRORS        2                          // Global max for fixable bit erros
+#define MODES_MAX_BITERRORS      2                          // Global max for fixable bit erros
 
 #define MODEAC_MSG_SAMPLES       (25 * 2)                     // include up to the SPI bit
-#define MODEAC_MSG_BYTES          2
-#define MODEAC_MSG_SQUELCH_LEVEL  0x07FF                      // Average signal strength limit
+#define MODEAC_MSG_BYTES         2
+#define MODEAC_MSG_SQUELCH_LEVEL 0x07FF                      // Average signal strength limit
 #define MODEAC_MSG_FLAG          (1<<0)
 #define MODEAC_MSG_MODES_HIT     (1<<1)
 #define MODEAC_MSG_MODEA_HIT     (1<<2)
@@ -77,11 +50,11 @@
 #define MODEAC_MSG_MODEA_ONLY    (1<<4)
 #define MODEAC_MSG_MODEC_OLD     (1<<5)
 
-#define MODES_PREAMBLE_US        8              // microseconds = bits
+#define MODES_PREAMBLE_US       8              // microseconds = bits
 #define MODES_PREAMBLE_SAMPLES  (MODES_PREAMBLE_US       * 2)
 #define MODES_PREAMBLE_SIZE     (MODES_PREAMBLE_SAMPLES  * sizeof(uint16_t))
-#define MODES_LONG_MSG_BYTES     14
-#define MODES_SHORT_MSG_BYTES    7
+#define MODES_LONG_MSG_BYTES    14
+#define MODES_SHORT_MSG_BYTES   7
 #define MODES_LONG_MSG_BITS     (MODES_LONG_MSG_BYTES    * 8)
 #define MODES_SHORT_MSG_BITS    (MODES_SHORT_MSG_BYTES   * 8)
 #define MODES_LONG_MSG_SAMPLES  (MODES_LONG_MSG_BITS     * 2)
@@ -89,16 +62,8 @@
 #define MODES_LONG_MSG_SIZE     (MODES_LONG_MSG_SAMPLES  * sizeof(uint16_t))
 #define MODES_SHORT_MSG_SIZE    (MODES_SHORT_MSG_SAMPLES * sizeof(uint16_t))
 
-#define MODES_RAWOUT_BUF_SIZE   (1500)
-#define MODES_RAWOUT_BUF_FLUSH  (MODES_RAWOUT_BUF_SIZE - 200)
-#define MODES_RAWOUT_BUF_RATE   (1000)            // 1000 * 64mS = 1 Min approx
-
-#define MODES_ICAO_CACHE_LEN 1024 // Power of two required
-#define MODES_ICAO_CACHE_TTL 60   // Time to live of cached addresses
 #define MODES_UNIT_FEET 0
 #define MODES_UNIT_METERS 1
-
-#define MODES_USER_LATLON_VALID (1<<0)
 
 #define MODES_ACFLAGS_LATLON_VALID   (1<<0)  // Aircraft Lat/Lon is decoded
 #define MODES_ACFLAGS_ALTITUDE_VALID (1<<1)  // Aircraft altitude is known
@@ -147,42 +112,7 @@
 #define MODES_CLIENT_BUF_SIZE  1024
 #define MODES_NET_SNDBUF_SIZE (1024*64)
 
-#ifndef HTMLPATH
-#define HTMLPATH   "./public_html"      // default path for gmap.html etc
-#endif
-
-#define MODES_NOTUSED(V) ((void) V)
-
 /* ======================== structure declarations ========================= */
-
-/* Code for introducing a less CPU-intensive method of correcting
- * single bit errors.
- *
- * Makes use of the fact that the crc checksum is linear with respect to
- * the bitwise xor operation, i.e.
- *      crc(m^e) = (crc(m)^crc(e)
- * where m and e are the message resp. error bit vectors.
- *
- * Call crc(e) the syndrome.
- *
- * The code below works by precomputing a table of (crc(e), e) for all
- * possible error vectors e (here only single bit and double bit errors),
- * search for the syndrome in the table, and correct the then known error.
- * The error vector e is represented by one or two bit positions that are
- * changed. If a second bit position is not used, it is -1.
- *
- * Run-time is binary search in a sorted table, plus some constant overhead,
- * instead of running through all possible bit positions (resp. pairs of
- * bit positions).
- *
- *
- *
- */
-struct errorinfo {
-    uint32_t syndrome;                 // CRC syndrome
-    int      bits;                     // Number of bit positions to fix
-    int      pos[MODES_MAX_BITERRORS]; // Bit positions corrected by this syndrome
-};
 
 typedef struct {
   uint32_t *icao_cache;      // Recently seen ICAO addresses cache
@@ -191,7 +121,7 @@ typedef struct {
 } ten90_context;
 
 // The struct we use to store information about a decoded message.
-struct modesMessage {
+typedef struct {
     // Generic fields
     unsigned char msg[MODES_LONG_MSG_BYTES];      // Binary message.
     int           msgbits;                        // Number of bits in message
@@ -232,7 +162,7 @@ struct modesMessage {
     int  altitude;
     int  unit;
     int  bFlags;                // Flags related to fields in this structure
-};
+} ten90_mode_s_message;
 
 /* ======================== function declarations ========================= */
 
@@ -240,13 +170,15 @@ struct modesMessage {
 extern "C" {
 #endif
 
+const char* ten90_version();
 int ten90_init();
-int ten90_detect_mode_a (uint16_t *m, struct modesMessage *mm);
+int ten90_detect_mode_a (uint16_t *m, ten90_mode_s_message *mm);
 int ten90_context_init(ten90_context *context);
 void ten90_context_destroy(ten90_context *context);
-int ten90_decode_hex_message(struct modesMessage *mm, char *hex, ten90_context *context);
-void ten90_decode_mode_a_message(struct modesMessage *mm, int ModeA);
-void ten90_decode_mode_s_message(struct modesMessage *mm, unsigned char *msg, ten90_context*);
+int ten90_decode_hex_message(ten90_mode_s_message *mm, char *hex, ten90_context *context);
+  int ten90_decode_bin_message(ten90_mode_s_message *mm, char *p, ten90_context *context);
+void ten90_decode_mode_a_message(ten90_mode_s_message *mm, int ModeA);
+void ten90_decode_mode_s_message(ten90_mode_s_message *mm, unsigned char *msg, ten90_context*);
 uint32_t ten90_mode_s_checksum(unsigned char *msg, int bits);
 void ten90_add_recently_seen_icao_addr(uint32_t addr, ten90_context*);
 int ten90_icao_address_was_recently_seen(uint32_t addr, ten90_context*);
@@ -257,21 +189,13 @@ int ten90_decode_movement_field(int movement);
 int ten90_mode_a_to_mode_c(unsigned int ModeA);
 int ten90_mode_s_message_len_by_type(int type);
 int ten90_fix_bit_errors(unsigned char *msg, int bits, int maxfix, char *fixedbits);
-int ten90_detect_mode_a(uint16_t *m, struct modesMessage *mm);
+int ten90_detect_mode_a(uint16_t *m, ten90_mode_s_message *mm);
 int ten90_fix_single_bit_errors(unsigned char *msg, int bits);
 
 int ten90_mode_a_to_modec      (unsigned int ModeA);
-
-void interactiveShowData(void);
-struct aircraft* interactiveReceiveData(struct modesMessage *mm);
-void modesSendAllClients  (int service, void *msg, int len);
-void modesSendRawOutput   (struct modesMessage *mm);
-void modesSendBeastOutput (struct modesMessage *mm);
-void modesSendSBSOutput   (struct modesMessage *mm);
-void useModesMessage      (struct modesMessage *mm);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // __DUMP1090_H
+#endif // __TEN90_H

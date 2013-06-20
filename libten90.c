@@ -6,6 +6,14 @@
 #include <string.h>
 #include <time.h>
 
+#define MODES_ICAO_CACHE_LEN 1024 // Power of two required
+#define MODES_ICAO_CACHE_TTL 60   // Time to live of cached addresses
+
+// http://semver.org/
+const char *ten90_version(void) {
+  return "2.0.0";
+}
+
 //
 // Turn an hex digit into its 4 bit decimal value.
 // Returns -1 if the digit is not in the 0-F range.
@@ -26,7 +34,7 @@ static int hexDigitVal(int c) {
 //
 // The function always returns 0 (success) to the caller as there is no
 // case where we want broken messages here to close the client connection.
-int ten90_decode_hex_message(struct modesMessage *mm, char *hex, ten90_context *context) {
+int ten90_decode_hex_message(ten90_mode_s_message *mm, char *hex, ten90_context *context) {
     int l = strlen(hex), j;
     unsigned char msg[MODES_LONG_MSG_BYTES];
     memset(mm, 0, sizeof(mm));
@@ -97,10 +105,48 @@ int ten90_decode_hex_message(struct modesMessage *mm, char *hex, ten90_context *
 
 
 //
-// Decode a raw Mode S message demodulated as a stream of bytes by detectModeS(),
-// and split it into fields populating a modesMessage structure.
+// This function decodes a Beast binary format message
 //
-void ten90_decode_mode_s_message(struct modesMessage *mm, unsigned char *msg,
+// The message is passed to the higher level layers, so it feeds
+// the selected screen output, the network output and so forth.
+//
+// If the message looks invalid it is silently discarded.
+//
+// The function always returns 0 (success) to the caller as there is no
+// case where we want broken messages here to close the client connection.
+int ten90_decode_bin_message(ten90_mode_s_message *mm, char *p, ten90_context *context) {
+    int msgLen = 0;
+    unsigned char msg[MODES_LONG_MSG_BYTES];
+    memset(mm, 0, sizeof(mm));
+
+    if ((*p == '1') && (context->mode_ac)) { // skip ModeA/C unless user enables --modes-ac
+        msgLen = MODEAC_MSG_BYTES;
+    } else if (*p == '2') {
+        msgLen = MODES_SHORT_MSG_BYTES;
+    } else if (*p == '3') {
+        msgLen = MODES_LONG_MSG_BYTES;
+    }
+
+    if (msgLen) {
+      p += 7;                 // Skip the timestamp
+      mm->signalLevel = *p++;  // Grab the signal level
+      memcpy(msg, p, msgLen); // and the data
+
+      if (msgLen == MODEAC_MSG_BYTES) { // ModeA or ModeC
+        ten90_decode_mode_a_message(mm, ((msg[0] << 8) | msg[1]));
+      } else {
+        ten90_decode_mode_s_message(mm, msg, context);
+      }
+    }
+    return (0);
+}
+
+
+//
+// Decode a raw Mode S message demodulated as a stream of bytes by detectModeS(),
+// and split it into fields populating a ten90_mode_s_message structure.
+//
+void ten90_decode_mode_s_message(ten90_mode_s_message *mm, unsigned char *msg,
                                  ten90_context *context) {
     char *ais_charset = "?ABCDEFGHIJKLMNOPQRSTUVWXYZ????? ???????????????0123456789??????";
 
@@ -374,7 +420,7 @@ void ten90_decode_mode_s_message(struct modesMessage *mm, unsigned char *msg,
 }
 
 
-void ten90_decode_mode_a_message(struct modesMessage *mm, int ModeA)
+void ten90_decode_mode_a_message(ten90_mode_s_message *mm, int ModeA)
 {
   mm->msgtype = 32; // Valid Mode S DF's are DF-00 to DF-31.
                     // so use 32 to indicate Mode A/C
@@ -649,9 +695,38 @@ int ten90_mode_s_message_len_by_type(int type) {
 }
 
 
+/* Code for introducing a less CPU-intensive method of correcting
+ * single bit errors.
+ *
+ * Makes use of the fact that the crc checksum is linear with respect to
+ * the bitwise xor operation, i.e.
+ *      crc(m^e) = (crc(m)^crc(e)
+ * where m and e are the message resp. error bit vectors.
+ *
+ * Call crc(e) the syndrome.
+ *
+ * The code below works by precomputing a table of (crc(e), e) for all
+ * possible error vectors e (here only single bit and double bit errors),
+ * search for the syndrome in the table, and correct the then known error.
+ * The error vector e is represented by one or two bit positions that are
+ * changed. If a second bit position is not used, it is -1.
+ *
+ * Run-time is binary search in a sorted table, plus some constant overhead,
+ * instead of running through all possible bit positions (resp. pairs of
+ * bit positions).
+ *
+ *
+ *
+ */
+struct errorinfo {
+    uint32_t syndrome;                 // CRC syndrome
+    int      bits;                     // Number of bit positions to fix
+    int      pos[MODES_MAX_BITERRORS]; // Bit positions corrected by this syndrome
+};
+
 #define NERRORINFO \
         (MODES_LONG_MSG_BITS+MODES_LONG_MSG_BITS*(MODES_LONG_MSG_BITS-1)/2)
-struct errorinfo bitErrorTable[NERRORINFO];
+static struct errorinfo bitErrorTable[NERRORINFO];
 
 /* Compare function as needed for stdlib's qsort and bsearch functions */
 int cmpErrorInfo(const void *p0, const void *p1) {
@@ -814,7 +889,7 @@ static uint32_t ModeAMidTable[24] = {
 // in two adjacent samples must be from the same pulse, so we can simply
 // add the values together..
 //
-int ten90_detect_mode_a(uint16_t *m, struct modesMessage *mm)
+int ten90_detect_mode_a(uint16_t *m, ten90_mode_s_message *mm)
 {
   int j, lastBitWasOne;
   int ModeABits = 0;
@@ -1071,7 +1146,7 @@ static void init_error_info(ten90_context *context) {
 
     // Test code: report if any syndrome appears at least twice. In this
     // case the correction cannot be done without ambiguity.
-    // Tried it, does not happen for 1- and 2-bit errors. 
+    // Tried it, does not happen for 1- and 2-bit errors.
     /*
     for (i = 1;  i < NERRORINFO;  i++) {
         if (bitErrorTable[i-1].syndrome == bitErrorTable[i].syndrome) {
@@ -1103,4 +1178,3 @@ void ten90_context_destroy(ten90_context *context)
 {
   free(context->icao_cache);
 }
-
