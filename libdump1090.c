@@ -3,6 +3,18 @@
 #include <ctype.h>
 #include <string.h>
 
+int ten90_init_context(struct ten90_context *context)
+{
+  memset(context, 0, sizeof(struct ten90_context));
+  fprintf(stderr, "creating cache of %ul entries * %d bytes\n",
+          MODES_ICAO_CACHE_LEN * 2,
+          sizeof(uint32_t));
+  if ((context->icao_cache = (uint32_t *)calloc(MODES_ICAO_CACHE_LEN * 2, sizeof(uint32_t))) == NULL) {
+    return -1;
+  }
+  return 0;
+}
+
 //
 // Turn an hex digit into its 4 bit decimal value.
 // Returns -1 if the digit is not in the 0-F range.
@@ -23,16 +35,15 @@ static int hexDigitVal(int c) {
 //
 // The function always returns 0 (success) to the caller as there is no
 // case where we want broken messages here to close the client connection.
-int ten90_decode_hex_message(char *hex) {
+int ten90_decode_hex_message(struct modesMessage *mm, char *hex, struct ten90_context *context) {
     int l = strlen(hex), j;
     unsigned char msg[MODES_LONG_MSG_BYTES];
-    struct modesMessage mm;
-    memset(&mm, 0, sizeof(mm));
+    memset(mm, 0, sizeof(mm));
 
     // Mark messages received over the internet as remote so that we don't try to
     // pass them off as being received by this instance when forwarding them
-    mm.remote      =    1;
-    mm.signalLevel = 0xFF;
+    mm->remote      =    1;
+    mm->signalLevel = 0xFF;
 
     // Remove spaces on the left and on the right
     while(l && isspace(hex[l-1])) {
@@ -49,7 +60,7 @@ int ten90_decode_hex_message(char *hex) {
 
     switch(hex[0]) {
         case '<': {
-            mm.signalLevel = (hexDigitVal(hex[13])<<4) | hexDigitVal(hex[14]);
+            mm->signalLevel = (hexDigitVal(hex[13])<<4) | hexDigitVal(hex[14]);
             hex += 15; l -= 16; // Skip <, timestamp and siglevel, and ;
             break;}
 
@@ -73,7 +84,7 @@ int ten90_decode_hex_message(char *hex) {
       && (l != (MODES_LONG_MSG_BYTES  * 2)) )
         {return (0);} // Too short or long message... broken
 
-    if ( (0 == Modes.mode_ac)
+    if ( (0 == context->mode_ac)
       && (l == (MODEAC_MSG_BYTES * 2)) )
         {return (0);} // Right length for ModeA/C, but not enabled
 
@@ -86,9 +97,9 @@ int ten90_decode_hex_message(char *hex) {
     }
 
     if (l == (MODEAC_MSG_BYTES * 2)) {  // ModeA or ModeC
-        ten90_decode_mode_a_message(&mm, ((msg[0] << 8) | msg[1]));
+      ten90_decode_mode_a_message(mm, ((msg[0] << 8) | msg[1]));
     } else {       // Assume ModeS
-        ten90_decode_mode_s_message(&mm, msg);
+      ten90_decode_mode_s_message(mm, msg, context);
     }
     return (0);
 }
@@ -98,7 +109,8 @@ int ten90_decode_hex_message(char *hex) {
 // Decode a raw Mode S message demodulated as a stream of bytes by detectModeS(),
 // and split it into fields populating a modesMessage structure.
 //
-void ten90_decode_mode_s_message(struct modesMessage *mm, unsigned char *msg) {
+void ten90_decode_mode_s_message(struct modesMessage *mm, unsigned char *msg,
+                                 struct ten90_context *context) {
     char *ais_charset = "?ABCDEFGHIJKLMNOPQRSTUVWXYZ????? ???????????????0123456789??????";
 
     // Work on our local copy
@@ -110,7 +122,7 @@ void ten90_decode_mode_s_message(struct modesMessage *mm, unsigned char *msg) {
     mm->msgbits         = ten90_mode_s_message_len_by_type(mm->msgtype);
     mm->crc             = ten90_mode_s_checksum(msg, mm->msgbits);
 
-    if ((mm->crc) && (Modes.nfix_crc) && ((mm->msgtype == 17) || (mm->msgtype == 18))) {
+    if ((mm->crc) && (context->nfix_crc) && ((mm->msgtype == 17) || (mm->msgtype == 18))) {
 //  if ((mm->crc) && (Modes.nfix_crc) && ((mm->msgtype == 11) || (mm->msgtype == 17))) {
         //
         // Fixing single bit errors in DF-11 is a bit dodgy because we have no way to
@@ -122,12 +134,12 @@ void ten90_decode_mode_s_message(struct modesMessage *mm, unsigned char *msg) {
         // using the results. Perhaps check the ICAO against known aircraft, and check
         // IID against known good IID's. That's a TODO.
         //
-        mm->correctedbits = ten90_fix_bit_errors(msg, mm->msgbits, Modes.nfix_crc, mm->corrected);
+        mm->correctedbits = ten90_fix_bit_errors(msg, mm->msgbits, context->nfix_crc, mm->corrected);
 
         // If we correct, validate ICAO addr to help filter birthday paradox solutions.
         if (mm->correctedbits) {
             uint32_t addr = (msg[1] << 16) | (msg[2] << 8) | (msg[3]);
-            if (!ten90_icao_address_was_recently_seen(addr))
+            if (!ten90_icao_address_was_recently_seen(addr, context))
                 mm->correctedbits = 0;
         }
     }
@@ -143,7 +155,7 @@ void ten90_decode_mode_s_message(struct modesMessage *mm, unsigned char *msg) {
 
         if (0 == mm->crc) {
             // DF 11 : if crc == 0 try to populate our ICAO addresses whitelist.
-            ten90_add_recently_seen_icao_addr(mm->addr);
+          ten90_add_recently_seen_icao_addr(mm->addr, context);
         }
 
     } else if (mm->msgtype == 17) { // DF 17
@@ -153,7 +165,7 @@ void ten90_decode_mode_s_message(struct modesMessage *mm, unsigned char *msg) {
 
         if (0 == mm->crc) {
             // DF 17 : if crc == 0 try to populate our ICAO addresses whitelist.
-          ten90_add_recently_seen_icao_addr(mm->addr);
+          ten90_add_recently_seen_icao_addr(mm->addr, context);
         }
 
     } else if (mm->msgtype == 18) { // DF 18
@@ -163,14 +175,14 @@ void ten90_decode_mode_s_message(struct modesMessage *mm, unsigned char *msg) {
 
         if (0 == mm->crc) {
             // DF 18 : if crc == 0 try to populate our ICAO addresses whitelist.
-            ten90_add_recently_seen_icao_addr(mm->addr);
+          ten90_add_recently_seen_icao_addr(mm->addr, context);
         }
 
     } else { // All other DF's
         // Compare the checksum with the whitelist of recently seen ICAO
         // addresses. If it matches one, then declare the message as valid
         mm->addr  = mm->crc;
-        mm->crcok = ten90_icao_address_was_recently_seen(mm->crc);
+        mm->crcok = ten90_icao_address_was_recently_seen(mm->crc, context);
     }
 
     // Fields for DF0, DF16
@@ -473,19 +485,19 @@ uint32_t ten90_icao_cache_hash_address(uint32_t a) {
 /* Add the specified entry to the cache of recently seen ICAO addresses.
  * Note that we also add a timestamp so that we can make sure that the
  * entry is only valid for MODES_ICAO_CACHE_TTL seconds. */
-void ten90_add_recently_seen_icao_addr(uint32_t addr) {
+void ten90_add_recently_seen_icao_addr(uint32_t addr, struct ten90_context *context) {
     uint32_t h = ten90_icao_cache_hash_address(addr);
-    Modes.icao_cache[h*2] = addr;
-    Modes.icao_cache[h*2+1] = (uint32_t) time(NULL);
+    context->icao_cache[h*2] = addr;
+    context->icao_cache[h*2+1] = (uint32_t) time(NULL);
 }
 
 /* Returns 1 if the specified ICAO address was seen in a DF format with
  * proper checksum (not xored with address) no more than * MODES_ICAO_CACHE_TTL
  * seconds ago. Otherwise returns 0. */
-int ten90_icao_address_was_recently_seen(uint32_t addr) {
+int ten90_icao_address_was_recently_seen(uint32_t addr, struct ten90_context *context) {
     uint32_t h = ten90_icao_cache_hash_address(addr);
-    uint32_t a = Modes.icao_cache[h*2];
-    uint32_t t = Modes.icao_cache[h*2+1];
+    uint32_t a = context->icao_cache[h*2];
+    uint32_t t = context->icao_cache[h*2+1];
 
     return a && a == addr && time(NULL)-t <= MODES_ICAO_CACHE_TTL;
 }
@@ -637,8 +649,8 @@ int ten90_mode_a_to_mode_c(unsigned int ModeA)
 //
 // Given the Downlink Format (DF) of the message, return the message length in bits.
 //
-// All known DF's 16 or greater are long. All known DF's 15 or less are short. 
-// There are lots of unused codes in both category, so we can assume ICAO will stick to 
+// All known DF's 16 or greater are long. All known DF's 15 or less are short.
+// There are lots of unused codes in both category, so we can assume ICAO will stick to
 // these rules, meaning that the most significant bit of the DF indicates the length.
 //
 int ten90_mode_s_message_len_by_type(int type) {

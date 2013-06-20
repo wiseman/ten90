@@ -17,6 +17,7 @@
 
 
 
+
 pkgdatadir = $(datadir)/libdump1090
 pkgincludedir = $(includedir)/libdump1090
 pkglibdir = $(libdir)/libdump1090
@@ -35,6 +36,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = x86_64-unknown-linux-gnu
 host_triplet = x86_64-unknown-linux-gnu
+noinst_PROGRAMS = test_libdump1090$(EXEEXT)
 subdir = .
 DIST_COMMON = README $(am__configure_deps) $(include_HEADERS) \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
@@ -86,6 +88,16 @@ LTLIBRARIES = $(lib_LTLIBRARIES)
 libdump1090_la_LIBADD =
 am_libdump1090_la_OBJECTS = libdump1090.lo
 libdump1090_la_OBJECTS = $(am_libdump1090_la_OBJECTS)
+PROGRAMS = $(noinst_PROGRAMS)
+am__objects_1 = test_libdump1090-libdump1090.$(OBJEXT)
+am_test_libdump1090_OBJECTS = $(am__objects_1) \
+	test_libdump1090-test_libdump1090.$(OBJEXT)
+test_libdump1090_OBJECTS = $(am_test_libdump1090_OBJECTS)
+am__DEPENDENCIES_1 =
+test_libdump1090_DEPENDENCIES = $(am__DEPENDENCIES_1)
+test_libdump1090_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(test_libdump1090_CFLAGS) \
+	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I.
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -99,11 +111,13 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(libdump1090_la_SOURCES)
-DIST_SOURCES = $(libdump1090_la_SOURCES)
+SOURCES = $(libdump1090_la_SOURCES) $(test_libdump1090_SOURCES)
+DIST_SOURCES = $(libdump1090_la_SOURCES) $(test_libdump1090_SOURCES)
 HEADERS = $(include_HEADERS)
 ETAGS = etags
 CTAGS = ctags
+am__tty_colors = \
+red=; grn=; lgn=; blu=; std=
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -239,10 +253,14 @@ target_alias =
 top_build_prefix = 
 top_builddir = .
 top_srcdir = .
+ACLOCAL_AMFLAGS = -I m4
 lib_LTLIBRARIES = libdump1090.la
 libdump1090_la_SOURCES = libdump1090.c
 include_HEADERS = dump1090.h
-ACLOCAL_AMFLAGS = -I m4
+test_libdump1090_SOURCES = $(libdump1090_la_SOURCES) test_libdump1090.c
+test_libdump1090_CFLAGS = $(libdump1090_la_CFLAGS)
+test_libdump1090_LDADD = $(libdump1090_la_LIBADD)
+TESTS = test_audio_manager
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -331,6 +349,18 @@ clean-libLTLIBRARIES:
 libdump1090.la: $(libdump1090_la_OBJECTS) $(libdump1090_la_DEPENDENCIES) $(EXTRA_libdump1090_la_DEPENDENCIES) 
 	$(LINK) -rpath $(libdir) $(libdump1090_la_OBJECTS) $(libdump1090_la_LIBADD) $(LIBS)
 
+clean-noinstPROGRAMS:
+	@list='$(noinst_PROGRAMS)'; test -n "$$list" || exit 0; \
+	echo " rm -f" $$list; \
+	rm -f $$list || exit $$?; \
+	test -n "$(EXEEXT)" || exit 0; \
+	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
+	echo " rm -f" $$list; \
+	rm -f $$list
+test_libdump1090$(EXEEXT): $(test_libdump1090_OBJECTS) $(test_libdump1090_DEPENDENCIES) $(EXTRA_test_libdump1090_DEPENDENCIES) 
+	@rm -f test_libdump1090$(EXEEXT)
+	$(test_libdump1090_LINK) $(test_libdump1090_OBJECTS) $(test_libdump1090_LDADD) $(LIBS)
+
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 
@@ -338,6 +368,8 @@ distclean-compile:
 	-rm -f *.tab.c
 
 include ./$(DEPDIR)/libdump1090.Plo
+include ./$(DEPDIR)/test_libdump1090-libdump1090.Po
+include ./$(DEPDIR)/test_libdump1090-test_libdump1090.Po
 
 .c.o:
 	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -359,6 +391,34 @@ include ./$(DEPDIR)/libdump1090.Plo
 #	source='$<' object='$@' libtool=yes \
 #	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
 #	$(LTCOMPILE) -c -o $@ $<
+
+test_libdump1090-libdump1090.o: libdump1090.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -MT test_libdump1090-libdump1090.o -MD -MP -MF $(DEPDIR)/test_libdump1090-libdump1090.Tpo -c -o test_libdump1090-libdump1090.o `test -f 'libdump1090.c' || echo '$(srcdir)/'`libdump1090.c
+	$(am__mv) $(DEPDIR)/test_libdump1090-libdump1090.Tpo $(DEPDIR)/test_libdump1090-libdump1090.Po
+#	source='libdump1090.c' object='test_libdump1090-libdump1090.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -c -o test_libdump1090-libdump1090.o `test -f 'libdump1090.c' || echo '$(srcdir)/'`libdump1090.c
+
+test_libdump1090-libdump1090.obj: libdump1090.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -MT test_libdump1090-libdump1090.obj -MD -MP -MF $(DEPDIR)/test_libdump1090-libdump1090.Tpo -c -o test_libdump1090-libdump1090.obj `if test -f 'libdump1090.c'; then $(CYGPATH_W) 'libdump1090.c'; else $(CYGPATH_W) '$(srcdir)/libdump1090.c'; fi`
+	$(am__mv) $(DEPDIR)/test_libdump1090-libdump1090.Tpo $(DEPDIR)/test_libdump1090-libdump1090.Po
+#	source='libdump1090.c' object='test_libdump1090-libdump1090.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -c -o test_libdump1090-libdump1090.obj `if test -f 'libdump1090.c'; then $(CYGPATH_W) 'libdump1090.c'; else $(CYGPATH_W) '$(srcdir)/libdump1090.c'; fi`
+
+test_libdump1090-test_libdump1090.o: test_libdump1090.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -MT test_libdump1090-test_libdump1090.o -MD -MP -MF $(DEPDIR)/test_libdump1090-test_libdump1090.Tpo -c -o test_libdump1090-test_libdump1090.o `test -f 'test_libdump1090.c' || echo '$(srcdir)/'`test_libdump1090.c
+	$(am__mv) $(DEPDIR)/test_libdump1090-test_libdump1090.Tpo $(DEPDIR)/test_libdump1090-test_libdump1090.Po
+#	source='test_libdump1090.c' object='test_libdump1090-test_libdump1090.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -c -o test_libdump1090-test_libdump1090.o `test -f 'test_libdump1090.c' || echo '$(srcdir)/'`test_libdump1090.c
+
+test_libdump1090-test_libdump1090.obj: test_libdump1090.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -MT test_libdump1090-test_libdump1090.obj -MD -MP -MF $(DEPDIR)/test_libdump1090-test_libdump1090.Tpo -c -o test_libdump1090-test_libdump1090.obj `if test -f 'test_libdump1090.c'; then $(CYGPATH_W) 'test_libdump1090.c'; else $(CYGPATH_W) '$(srcdir)/test_libdump1090.c'; fi`
+	$(am__mv) $(DEPDIR)/test_libdump1090-test_libdump1090.Tpo $(DEPDIR)/test_libdump1090-test_libdump1090.Po
+#	source='test_libdump1090.c' object='test_libdump1090-test_libdump1090.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libdump1090_CFLAGS) $(CFLAGS) -c -o test_libdump1090-test_libdump1090.obj `if test -f 'test_libdump1090.c'; then $(CYGPATH_W) 'test_libdump1090.c'; else $(CYGPATH_W) '$(srcdir)/test_libdump1090.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -438,6 +498,99 @@ GTAGS:
 
 distclean-tags:
 	-rm -f TAGS ID GTAGS GRTAGS GSYMS GPATH tags
+
+check-TESTS: $(TESTS)
+	@failed=0; all=0; xfail=0; xpass=0; skip=0; \
+	srcdir=$(srcdir); export srcdir; \
+	list=' $(TESTS) '; \
+	$(am__tty_colors); \
+	if test -n "$$list"; then \
+	  for tst in $$list; do \
+	    if test -f ./$$tst; then dir=./; \
+	    elif test -f $$tst; then dir=; \
+	    else dir="$(srcdir)/"; fi; \
+	    if $(TESTS_ENVIRONMENT) $${dir}$$tst; then \
+	      all=`expr $$all + 1`; \
+	      case " $(XFAIL_TESTS) " in \
+	      *[\ \	]$$tst[\ \	]*) \
+		xpass=`expr $$xpass + 1`; \
+		failed=`expr $$failed + 1`; \
+		col=$$red; res=XPASS; \
+	      ;; \
+	      *) \
+		col=$$grn; res=PASS; \
+	      ;; \
+	      esac; \
+	    elif test $$? -ne 77; then \
+	      all=`expr $$all + 1`; \
+	      case " $(XFAIL_TESTS) " in \
+	      *[\ \	]$$tst[\ \	]*) \
+		xfail=`expr $$xfail + 1`; \
+		col=$$lgn; res=XFAIL; \
+	      ;; \
+	      *) \
+		failed=`expr $$failed + 1`; \
+		col=$$red; res=FAIL; \
+	      ;; \
+	      esac; \
+	    else \
+	      skip=`expr $$skip + 1`; \
+	      col=$$blu; res=SKIP; \
+	    fi; \
+	    echo "$${col}$$res$${std}: $$tst"; \
+	  done; \
+	  if test "$$all" -eq 1; then \
+	    tests="test"; \
+	    All=""; \
+	  else \
+	    tests="tests"; \
+	    All="All "; \
+	  fi; \
+	  if test "$$failed" -eq 0; then \
+	    if test "$$xfail" -eq 0; then \
+	      banner="$$All$$all $$tests passed"; \
+	    else \
+	      if test "$$xfail" -eq 1; then failures=failure; else failures=failures; fi; \
+	      banner="$$All$$all $$tests behaved as expected ($$xfail expected $$failures)"; \
+	    fi; \
+	  else \
+	    if test "$$xpass" -eq 0; then \
+	      banner="$$failed of $$all $$tests failed"; \
+	    else \
+	      if test "$$xpass" -eq 1; then passes=pass; else passes=passes; fi; \
+	      banner="$$failed of $$all $$tests did not behave as expected ($$xpass unexpected $$passes)"; \
+	    fi; \
+	  fi; \
+	  dashes="$$banner"; \
+	  skipped=""; \
+	  if test "$$skip" -ne 0; then \
+	    if test "$$skip" -eq 1; then \
+	      skipped="($$skip test was not run)"; \
+	    else \
+	      skipped="($$skip tests were not run)"; \
+	    fi; \
+	    test `echo "$$skipped" | wc -c` -le `echo "$$banner" | wc -c` || \
+	      dashes="$$skipped"; \
+	  fi; \
+	  report=""; \
+	  if test "$$failed" -ne 0 && test -n "$(PACKAGE_BUGREPORT)"; then \
+	    report="Please report to $(PACKAGE_BUGREPORT)"; \
+	    test `echo "$$report" | wc -c` -le `echo "$$banner" | wc -c` || \
+	      dashes="$$report"; \
+	  fi; \
+	  dashes=`echo "$$dashes" | sed s/./=/g`; \
+	  if test "$$failed" -eq 0; then \
+	    col="$$grn"; \
+	  else \
+	    col="$$red"; \
+	  fi; \
+	  echo "$${col}$$dashes$${std}"; \
+	  echo "$${col}$$banner$${std}"; \
+	  test -z "$$skipped" || echo "$${col}$$skipped$${std}"; \
+	  test -z "$$report" || echo "$${col}$$report$${std}"; \
+	  echo "$${col}$$dashes$${std}"; \
+	  test "$$failed" -eq 0; \
+	else :; fi
 
 distdir: $(DISTFILES)
 	$(am__remove_distdir)
@@ -602,8 +755,9 @@ distcleancheck: distclean
 	       $(distcleancheck_listfiles) ; \
 	       exit 1; } >&2
 check-am: all-am
+	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
 check: check-am
-all-am: Makefile $(LTLIBRARIES) $(HEADERS) config.h
+all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(HEADERS) config.h
 installdirs:
 	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
@@ -641,7 +795,7 @@ maintainer-clean-generic:
 clean: clean-am
 
 clean-am: clean-generic clean-libLTLIBRARIES clean-libtool \
-	mostlyclean-am
+	clean-noinstPROGRAMS mostlyclean-am
 
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
@@ -712,25 +866,25 @@ ps-am:
 
 uninstall-am: uninstall-includeHEADERS uninstall-libLTLIBRARIES
 
-.MAKE: all install-am install-strip
+.MAKE: all check-am install-am install-strip
 
-.PHONY: CTAGS GTAGS all all-am am--refresh check check-am clean \
-	clean-generic clean-libLTLIBRARIES clean-libtool ctags dist \
-	dist-all dist-bzip2 dist-gzip dist-lzip dist-lzma dist-shar \
-	dist-tarZ dist-xz dist-zip distcheck distclean \
-	distclean-compile distclean-generic distclean-hdr \
-	distclean-libtool distclean-tags distcleancheck distdir \
-	distuninstallcheck dvi dvi-am html html-am info info-am \
-	install install-am install-data install-data-am install-dvi \
-	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-includeHEADERS install-info \
-	install-info-am install-libLTLIBRARIES install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags uninstall uninstall-am uninstall-includeHEADERS \
-	uninstall-libLTLIBRARIES
+.PHONY: CTAGS GTAGS all all-am am--refresh check check-TESTS check-am \
+	clean clean-generic clean-libLTLIBRARIES clean-libtool \
+	clean-noinstPROGRAMS ctags dist dist-all dist-bzip2 dist-gzip \
+	dist-lzip dist-lzma dist-shar dist-tarZ dist-xz dist-zip \
+	distcheck distclean distclean-compile distclean-generic \
+	distclean-hdr distclean-libtool distclean-tags distcleancheck \
+	distdir distuninstallcheck dvi dvi-am html html-am info \
+	info-am install install-am install-data install-data-am \
+	install-dvi install-dvi-am install-exec install-exec-am \
+	install-html install-html-am install-includeHEADERS \
+	install-info install-info-am install-libLTLIBRARIES \
+	install-man install-pdf install-pdf-am install-ps \
+	install-ps-am install-strip installcheck installcheck-am \
+	installdirs maintainer-clean maintainer-clean-generic \
+	mostlyclean mostlyclean-compile mostlyclean-generic \
+	mostlyclean-libtool pdf pdf-am ps ps-am tags uninstall \
+	uninstall-am uninstall-includeHEADERS uninstall-libLTLIBRARIES
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

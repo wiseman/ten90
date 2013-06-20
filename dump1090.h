@@ -358,6 +358,13 @@ struct {                             // Internal state
     unsigned int stat_ModeAC;
 } Modes;
 
+
+struct ten90_context {
+  uint32_t *icao_cache;      // Recently seen ICAO addresses cache
+  int mode_ac;                   // Enable decoding of SSR Modes A & C
+  int nfix_crc;                  // Number of crc bit error(s) to correct
+};
+
 // The struct we use to store information about a decoded message.
 struct modesMessage {
     // Generic fields
@@ -409,11 +416,13 @@ extern "C" {
 #endif
 
 int  detectModeA       (uint16_t *m, struct modesMessage *mm);
+int ten90_init_context(struct ten90_context *context);
+int ten90_decode_hex_message(struct modesMessage *mm, char *hex, struct ten90_context *context);
 void ten90_decode_mode_a_message(struct modesMessage *mm, int ModeA);
-void ten90_decode_mode_s_message(struct modesMessage *mm, unsigned char *msg);
+void ten90_decode_mode_s_message(struct modesMessage *mm, unsigned char *msg, struct ten90_context*);
 uint32_t ten90_mode_s_checksum(unsigned char *msg, int bits);
-void ten90_add_recently_seen_icao_addr(uint32_t addr);
-int ten90_icao_address_was_recently_seen(uint32_t addr);
+void ten90_add_recently_seen_icao_addr(uint32_t addr, struct ten90_context*);
+int ten90_icao_address_was_recently_seen(uint32_t addr, struct ten90_context*);
 int ten90_decode_id13_field(int ID13Field);
 int ten90_decode_ac13_field(int AC13Field, int *unit);
 int ten90_decode_ac12_field(int AC12Field, int *unit);
