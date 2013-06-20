@@ -9,6 +9,7 @@ LT_INIT
 
 AC_PROG_MAKE_SET
 AC_PROG_CC
+AC_PROG_CXX
 AC_PROG_INSTALL
 AC_PROG_LIBTOOL
 AM_PROG_CC_C_O
@@ -43,6 +44,13 @@ AC_CONFIG_MACRO_DIR([m4])
 
 AC_CONFIG_SRCDIR([libten90.c])
 
+# HACK:  Make gtest's configure script pick up our copy of CFLAGS and CXXFLAGS,
+#   since the flags added by ACX_CHECK_SUNCC must be used when compiling gtest
+#   too.
+export CFLAGS
+export CXXFLAGS
+AC_CONFIG_SUBDIRS([gtest])
+
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile tests/Makefile])
 AC_OUTPUT
