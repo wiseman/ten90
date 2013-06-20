@@ -145,7 +145,6 @@ extern "C" {
 #endif
 
 const char* ten90_version();
-int ten90_init();
 int ten90_context_init(ten90_context *context);
 void ten90_context_destroy(ten90_context *context);
 int ten90_decode_hex_message(ten90_mode_s_message *mm, char *hex, ten90_context *context);
