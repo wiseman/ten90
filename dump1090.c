@@ -31,6 +31,7 @@
 /* ============================= Include files ========================== */
 
 #ifndef _WIN32
+    #include <ctype.h>
     #include <stdio.h>
     #include <string.h>
     #include <stdlib.h>
@@ -2581,53 +2582,170 @@ void modesSendSBSOutput(ten90_mode_s_message *mm) {
     modesSendAllClients(Modes.sbsos, msg, p-msg);
 }
 
+
+// Turn an hex digit into its 4 bit decimal value.  Returns -1 if the
+// digit is not in the 0-F range.
+static int hexDigitVal(int c) {
+    c = tolower(c);
+    if (c >= '0' && c <= '9') return c-'0';
+    else if (c >= 'a' && c <= 'f') return c-'a'+10;
+    else return -1;
+}
+
+
+// This function decodes a string representing message in raw hex
+// format like: *8D4B969699155600E87406F5B69F; The string is
+// null-terminated.
 //
-// This function decodes a string representing message in raw hex format
-// like: *8D4B969699155600E87406F5B69F; The string is null-terminated.
-//
-// The message is passed to the higher level layers, so it feeds
-// the selected screen output, the network output and so forth.
+// The message is passed to the higher level layers, so it feeds the
+// selected screen output, the network output and so forth.
 //
 // If the message looks invalid it is silently discarded.
 //
-// The function always returns 0 (success) to the caller as there is no
-// case where we want broken messages here to close the client connection.
+// The function always returns 0 (success) to the caller as there is
+// no case where we want broken messages here to close the client
+// connection.
+
 int decodeHexMessage(struct client *c, char *hex) {
   ten90_mode_s_message mm;
+  int l = strlen(hex), j;
+  unsigned char msg[MODES_LONG_MSG_BYTES];
+
   memset(&mm, 0, sizeof(mm));
+
+  // Mark messages received over the internet as remote so that we
+  // don't try to pass them off as being received by this instance
+  // when forwarding them
+  mm.remote = 1;
   mm.signalLevel = 0xFF;
-  if (ten90_decode_hex_message(&mm, hex, &Modes.ctx)) {
-  } else {
-    // Mark messages received over the internet as remote so that we don't try to
-    // pass them off as being received by this instance when forwarding them
-    mm.remote = 1;
-    useModesMessage(&mm);
+
+  // Remove spaces on the left and on the right
+  while (l && isspace(hex[l-1])) {
+    hex[l-1] = '\0'; l--;
   }
+  while (isspace(*hex)) {
+    hex++; l--;
+  }
+
+  // Turn the message into binary.
+  // Accept *-AVR raw @-AVR/BEAST timeS+raw %-AVR timeS+raw (CRC good) <-BEAST timeS+sigL+raw
+  // and some AVR records that we can understand
+  if (hex[l - 1] != ';') {
+    // not complete - abort
+    return 0;
+  }
+
+  switch(hex[0]) {
+  case '<': {
+    mm.signalLevel = (hexDigitVal(hex[13]) << 4) | hexDigitVal(hex[14]);
+    // Skip <, timestamp and siglevel, and ;
+    hex += 15; l -= 16;
+    break;
+  }
+
+  case '@':     // No CRC check
+  case '%': {   // CRC is OK
+    // Skip @,%, and timestamp, and ;
+    hex += 13; l -= 14;
+    break;
+  }
+  case '*':
+  case ':': {
+    // Skip * and ;
+    hex++; l -= 2;
+    break;
+  }
+
+  default: {
+    // We don't know what this is, so abort
+    return 0;
+  }
+  }
+
+  if ((l != (MODEAC_MSG_BYTES * 2)) &&
+      (l != (MODES_SHORT_MSG_BYTES * 2)) &&
+      (l != (MODES_LONG_MSG_BYTES * 2))) {
+    // Too short or long message... broken
+    return 0;
+  }
+
+  if ((0 == Modes.mode_ac) &&
+      (l == (MODEAC_MSG_BYTES * 2))) {
+    // Right length for ModeA/C, but not enabled
+    return 0;
+  }
+
+  for (j = 0; j < l; j += 2) {
+    int high = hexDigitVal(hex[j]);
+    int low  = hexDigitVal(hex[j + 1]);
+    if (high == -1 || low == -1) {
+      return 0;
+    }
+    msg[j/2] = (high << 4) | low;
+  }
+
+  if (l == (MODEAC_MSG_BYTES * 2)) {
+    // ModeA or ModeC
+      ten90_decode_mode_a_message(&mm, ((msg[0] << 8) | msg[1]));
+    } else {
+    // Assume ModeS
+      ten90_decode_mode_s_message(&mm, msg, &Modes.ctx);
+    }
+
+  useModesMessage(&mm);
+
   return 0;
 }
 
-//
+
 // This function decodes a Beast binary format message
 //
-// The message is passed to the higher level layers, so it feeds
-// the selected screen output, the network output and so forth.
+// The message is passed to the higher level layers, so it feeds the
+// selected screen output, the network output and so forth.
 //
 // If the message looks invalid it is silently discarded.
 //
-// The function always returns 0 (success) to the caller as there is no
-// case where we want broken messages here to close the client connection.
+// The function always returns 0 (success) to the caller as there is
+// no case where we want broken messages here to close the client
+// connection.
+
 int decodeBinMessage(struct client *c, char *p) {
   ten90_mode_s_message mm;
+  int msgLen = 0;
+  unsigned char msg[MODES_LONG_MSG_BYTES];
+
   memset(&mm, 0, sizeof(mm));
-  if (ten90_decode_bin_message(&mm, p, &Modes.ctx)) {
-  } else {
-    // Mark messages received over the internet as remote so that we don't try to
-    // pass them off as being received by this instance when forwarding them
-    mm.remote = 1;
+  // Mark messages received over the internet as remote so that we
+  // don't try to pass them off as being received by this instance
+  // when forwarding them
+  mm.remote = 1;
+
+  if ((*p == '1') && (Modes.mode_ac)) { // skip ModeA/C unless user enables --modes-ac
+    msgLen = MODEAC_MSG_BYTES;
+  } else if (*p == '2') {
+    msgLen = MODES_SHORT_MSG_BYTES;
+  } else if (*p == '3') {
+    msgLen = MODES_LONG_MSG_BYTES;
+  }
+
+  if (msgLen) {
+    p += 7;                 // Skip the timestamp
+    mm.signalLevel = *p++;  // Grab the signal level
+    memcpy(msg, p, msgLen); // and the data
+
+    if (msgLen == MODEAC_MSG_BYTES) { // ModeA or ModeC
+      ten90_decode_mode_a_message(&mm, ((msg[0] << 8) | msg[1]));
+    } else {
+      ten90_decode_mode_s_message(&mm, msg, &Modes.ctx);
+    }
+
     useModesMessage(&mm);
- }
+  }
+
   return 0;
 }
+
+
 /* Return a description of planes in json. */
 char *aircraftsToJson(int *len) {
     time_t now = time(NULL);
@@ -2924,9 +3042,9 @@ void modesReadFromClients(void) {
         if (c->service == Modes.ris)
             modesReadFromClient(c,"\n", decodeHexMessage);
         else if (c->service == Modes.bis)
-            modesReadFromClient(c,"",decodeBinMessage);
+            modesReadFromClient(c,"", decodeBinMessage);
         else if (c->service == Modes.https)
-            modesReadFromClient(c,"\r\n\r\n",handleHTTPRequest);
+            modesReadFromClient(c,"\r\n\r\n", handleHTTPRequest);
     }
 }
 

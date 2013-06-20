@@ -1,7 +1,7 @@
 #include "ten90.h"
 
-#include <ctype.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -9,143 +9,18 @@
 #define MODES_ICAO_CACHE_LEN 1024 // Power of two required
 #define MODES_ICAO_CACHE_TTL 60   // Time to live of cached addresses
 
+
 // http://semver.org/
+
 const char *ten90_version(void) {
   return "2.0.0";
 }
 
-//
-// Turn an hex digit into its 4 bit decimal value.
-// Returns -1 if the digit is not in the 0-F range.
-static int hexDigitVal(int c) {
-    c = tolower(c);
-    if (c >= '0' && c <= '9') return c-'0';
-    else if (c >= 'a' && c <= 'f') return c-'a'+10;
-    else return -1;
-}
-//
-// This function decodes a string representing message in raw hex format
-// like: *8D4B969699155600E87406F5B69F; The string is null-terminated.
-//
-// The message is passed to the higher level layers, so it feeds
-// the selected screen output, the network output and so forth.
-//
-// If the message looks invalid it is silently discarded.
-//
-// The function always returns 0 (success) to the caller as there is no
-// case where we want broken messages here to close the client connection.
-int ten90_decode_hex_message(ten90_mode_s_message *mm, char *hex, ten90_context *context) {
-    int l = strlen(hex), j;
-    unsigned char msg[MODES_LONG_MSG_BYTES];
-    memset(mm, 0, sizeof(mm));
 
-    // Mark messages received over the internet as remote so that we don't try to
-    // pass them off as being received by this instance when forwarding them
-    mm->remote      =    1;
-    mm->signalLevel = 0xFF;
+// Decode a raw Mode S message demodulated as a stream of bytes by
+// detectModeS(), and split it into fields populating a
+// ten90_mode_s_message structure.
 
-    // Remove spaces on the left and on the right
-    while(l && isspace(hex[l-1])) {
-        hex[l-1] = '\0'; l--;
-    }
-    while(isspace(*hex)) {
-        hex++; l--;
-    }
-
-    // Turn the message into binary.
-    // Accept *-AVR raw @-AVR/BEAST timeS+raw %-AVR timeS+raw (CRC good) <-BEAST timeS+sigL+raw
-    // and some AVR records that we can understand
-    if (hex[l-1] != ';') {return (0);} // not complete - abort
-
-    switch(hex[0]) {
-        case '<': {
-            mm->signalLevel = (hexDigitVal(hex[13])<<4) | hexDigitVal(hex[14]);
-            hex += 15; l -= 16; // Skip <, timestamp and siglevel, and ;
-            break;}
-
-        case '@':     // No CRC check
-        case '%': {   // CRC is OK
-            hex += 13; l -= 14; // Skip @,%, and timestamp, and ;
-            break;}
-
-        case '*':
-        case ':': {
-            hex++; l-=2; // Skip * and ;
-            break;}
-
-        default: {
-            return (0); // We don't know what this is, so abort
-            break;}
-    }
-
-    if ( (l != (MODEAC_MSG_BYTES      * 2))
-      && (l != (MODES_SHORT_MSG_BYTES * 2))
-      && (l != (MODES_LONG_MSG_BYTES  * 2)) )
-        {return (0);} // Too short or long message... broken
-
-    if ( (0 == context->mode_ac)
-      && (l == (MODEAC_MSG_BYTES * 2)) )
-        {return (0);} // Right length for ModeA/C, but not enabled
-
-    for (j = 0; j < l; j += 2) {
-        int high = hexDigitVal(hex[j]);
-        int low  = hexDigitVal(hex[j+1]);
-
-        if (high == -1 || low == -1) return 0;
-        msg[j/2] = (high << 4) | low;
-    }
-
-    if (l == (MODEAC_MSG_BYTES * 2)) {  // ModeA or ModeC
-      ten90_decode_mode_a_message(mm, ((msg[0] << 8) | msg[1]));
-    } else {       // Assume ModeS
-      ten90_decode_mode_s_message(mm, msg, context);
-    }
-    return (0);
-}
-
-
-//
-// This function decodes a Beast binary format message
-//
-// The message is passed to the higher level layers, so it feeds
-// the selected screen output, the network output and so forth.
-//
-// If the message looks invalid it is silently discarded.
-//
-// The function always returns 0 (success) to the caller as there is no
-// case where we want broken messages here to close the client connection.
-int ten90_decode_bin_message(ten90_mode_s_message *mm, char *p, ten90_context *context) {
-    int msgLen = 0;
-    unsigned char msg[MODES_LONG_MSG_BYTES];
-    memset(mm, 0, sizeof(mm));
-
-    if ((*p == '1') && (context->mode_ac)) { // skip ModeA/C unless user enables --modes-ac
-        msgLen = MODEAC_MSG_BYTES;
-    } else if (*p == '2') {
-        msgLen = MODES_SHORT_MSG_BYTES;
-    } else if (*p == '3') {
-        msgLen = MODES_LONG_MSG_BYTES;
-    }
-
-    if (msgLen) {
-      p += 7;                 // Skip the timestamp
-      mm->signalLevel = *p++;  // Grab the signal level
-      memcpy(msg, p, msgLen); // and the data
-
-      if (msgLen == MODEAC_MSG_BYTES) { // ModeA or ModeC
-        ten90_decode_mode_a_message(mm, ((msg[0] << 8) | msg[1]));
-      } else {
-        ten90_decode_mode_s_message(mm, msg, context);
-      }
-    }
-    return (0);
-}
-
-
-//
-// Decode a raw Mode S message demodulated as a stream of bytes by detectModeS(),
-// and split it into fields populating a ten90_mode_s_message structure.
-//
 void ten90_decode_mode_s_message(ten90_mode_s_message *mm, unsigned char *msg,
                                  ten90_context *context) {
     char *ais_charset = "?ABCDEFGHIJKLMNOPQRSTUVWXYZ????? ???????????????0123456789??????";

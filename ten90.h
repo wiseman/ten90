@@ -90,7 +90,6 @@
 
 typedef struct {
   uint32_t *icao_cache;      // Recently seen ICAO addresses cache
-  int mode_ac;                   // Enable decoding of SSR Modes A & C
   int nfix_crc;                  // Number of crc bit error(s) to correct
 } ten90_context;
 
@@ -147,8 +146,6 @@ extern "C" {
 const char* ten90_version();
 int ten90_context_init(ten90_context *context);
 void ten90_context_destroy(ten90_context *context);
-int ten90_decode_hex_message(ten90_mode_s_message *mm, char *hex, ten90_context *context);
-int ten90_decode_bin_message(ten90_mode_s_message *mm, char *p, ten90_context *context);
 void ten90_decode_mode_a_message(ten90_mode_s_message *mm, int ModeA);
 void ten90_decode_mode_s_message(ten90_mode_s_message *mm, unsigned char *msg, ten90_context*);
 
