@@ -91,7 +91,7 @@
 typedef struct {
   uint32_t *icao_cache;      // Recently seen ICAO addresses cache
   int nfix_crc;                  // Number of crc bit error(s) to correct
-} ten90_context;
+} Ten90Context;
 
 // The struct we use to store information about a decoded message.
 typedef struct {
@@ -135,7 +135,7 @@ typedef struct {
     int  altitude;
     int  unit;
     int  bFlags;                // Flags related to fields in this structure
-} ten90_mode_s_message;
+} Ten90Message;
 
 /* ======================== function declarations ========================= */
 
@@ -143,25 +143,25 @@ typedef struct {
 extern "C" {
 #endif
 
-const char* ten90_version();
-int ten90_context_init(ten90_context *context);
-void ten90_context_destroy(ten90_context *context);
-void ten90_decode_mode_a_message(ten90_mode_s_message *mm, int ModeA);
-void ten90_decode_mode_s_message(ten90_mode_s_message *mm, unsigned char *msg, ten90_context*);
-
-uint32_t ten90_mode_s_checksum(unsigned char *msg, int bits);
-void ten90_add_recently_seen_icao_addr(uint32_t addr, ten90_context*);
-int ten90_icao_address_was_recently_seen(uint32_t addr, ten90_context*);
-int ten90_decode_id13_field(int ID13Field);
-int ten90_decode_ac13_field(int AC13Field, int *unit);
-int ten90_decode_ac12_field(int AC12Field, int *unit);
-int ten90_decode_movement_field(int movement);
-int ten90_mode_a_to_mode_c(unsigned int ModeA);
-int ten90_mode_s_message_len_by_type(int type);
-int ten90_fix_bit_errors(unsigned char *msg, int bits, int maxfix, char *fixedbits);
-int ten90_fix_single_bit_errors(unsigned char *msg, int bits);
-int ten90_mode_a_to_modec(unsigned int ModeA);
-void ten90_display_mode_s_message(ten90_mode_s_message *mm);
+const char* Ten90GetVersion();
+int Ten90ContextInit(Ten90Context *context);
+void Ten90ContextDestroy(Ten90Context *context);
+void Ten90DecodeModeAMessage(Ten90Message *mm, int ModeA);
+int Ten90DecodeFrame(unsigned char *bytes, Ten90Context *context,
+                     Ten90Message *mm);
+uint32_t Ten90ModeSChecksum(unsigned char *msg, int bits);
+void Ten90AddRecentlySeenIcaoAddr(uint32_t addr, Ten90Context*);
+int Ten90IcaoAddressWasRecentlySeen(uint32_t addr, Ten90Context*);
+int Ten90DecodeId13Field(int ID13Field);
+int Ten90DecodeAc13Field(int AC13Field, int *unit);
+int Ten90DecodeAc12Field(int AC12Field, int *unit);
+int Ten90DecodeMovementField(int movement);
+int Ten90ModeAToModeC(unsigned int ModeA);
+int Ten90ModeSMessageLenByType(int type);
+int Ten90FixBitErrors(unsigned char *msg, int bits, int maxfix, char *fixedbits);
+int Ten90FixSingleBitErrors(unsigned char *msg, int bits);
+int Ten90ModeAToModec(unsigned int ModeA);
+void Ten90DisplayModeSMessage(Ten90Message *mm);
 
 #ifdef __cplusplus
 }
