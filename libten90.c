@@ -727,6 +727,17 @@ struct errorinfo {
 static struct errorinfo bitErrorTable[NERRORINFO];
 
 
+static DumpErrorInfo() {
+  int i, j;
+  for (i = 0; i < NERRORINFO; i++) {
+    fprintf(stderr, "%x %x ", bitErrorTable[i].syndrome, bitErrorTable[i].bits);
+    for (j = 0; j < MODES_MAX_BITERRORS; j++) {
+      fprintf(stderr, "%d ", bitErrorTable[i].pos[j]);
+    }
+    fprintf(stderr, "\n");
+  }
+}
+
 // Compare function as needed for stdlib's qsort and bsearch
 // functions.
 
