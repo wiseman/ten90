@@ -2747,7 +2747,7 @@ int handleHTTPRequest(struct client *c, char *p) {
       clen = sbuf.st_size;
     } else {
       char buf[128];
-      clen = snprintf(buf,sizeof(buf),"Error opening HTML file: %s", strerror(errno));
+      clen = snprintf(buf,sizeof(buf),"Error opening HTML file %s: %s", getFile, strerror(errno));
       content = strdup(buf);
     }
 
