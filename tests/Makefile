@@ -50,18 +50,21 @@ test_libten90_OBJECTS = $(am_test_libten90_OBJECTS)
 test_libten90_DEPENDENCIES = $(top_builddir)/libten90.la \
 	$(top_builddir)/gtest/lib/libgtest.la \
 	$(top_builddir)/gtest/lib/libgtest_main.la
+test_libten90_LINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CXXLD) $(test_libten90_CXXFLAGS) \
+	$(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I. -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
 am__mv = mv -f
-COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
-	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
-LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
-CCLD = $(CC)
-LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
+LTCXXCOMPILE = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
+CXXLD = $(CXX)
+CXXLINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
 SOURCES = $(test_libten90_SOURCES)
 DIST_SOURCES = $(test_libten90_SOURCES)
@@ -196,7 +199,7 @@ ten90_PC_LIBS =  -L/usr/local/lib -lrtlsdr -lusb-1.0   -lpthread -lm
 top_build_prefix = ../
 top_builddir = ..
 top_srcdir = ..
-test_libten90_CPPFLAGS = $(libten90_la_CFLAGS) \
+test_libten90_CXXFLAGS = $(libten90_la_CFLAGS) \
 	                 -I$(top_srcdir)/gtest/include \
                          -I$(top_builddir)/gtest/include
 
@@ -204,11 +207,11 @@ test_libten90_LDADD = $(libten90_la_LIBADD) $(top_builddir)/libten90.la \
                       $(top_builddir)/gtest/lib/libgtest.la \
                       $(top_builddir)/gtest/lib/libgtest_main.la
 
-test_libten90_SOURCES = test_libten90.c
+test_libten90_SOURCES = test_libten90.cc
 all: all-am
 
 .SUFFIXES:
-.SUFFIXES: .c .lo .o .obj
+.SUFFIXES: .cc .lo .o .obj
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -250,7 +253,7 @@ clean-checkPROGRAMS:
 	rm -f $$list
 test_libten90$(EXEEXT): $(test_libten90_OBJECTS) $(test_libten90_DEPENDENCIES) $(EXTRA_test_libten90_DEPENDENCIES) 
 	@rm -f test_libten90$(EXEEXT)
-	$(LINK) $(test_libten90_OBJECTS) $(test_libten90_LDADD) $(LIBS)
+	$(test_libten90_LINK) $(test_libten90_OBJECTS) $(test_libten90_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -260,40 +263,40 @@ distclean-compile:
 
 include ./$(DEPDIR)/test_libten90-test_libten90.Po
 
-.c.o:
-	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+.cc.o:
+	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 #	source='$<' object='$@' libtool=no \
-#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-#	$(COMPILE) -c $<
+#	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
+#	$(CXXCOMPILE) -c -o $@ $<
 
-.c.obj:
-	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
+.cc.obj:
+	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
 	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 #	source='$<' object='$@' libtool=no \
-#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-#	$(COMPILE) -c `$(CYGPATH_W) '$<'`
+#	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
+#	$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
-.c.lo:
-	$(LTCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+.cc.lo:
+	$(LTCXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Plo
 #	source='$<' object='$@' libtool=yes \
-#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-#	$(LTCOMPILE) -c -o $@ $<
+#	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
+#	$(LTCXXCOMPILE) -c -o $@ $<
 
-test_libten90-test_libten90.o: test_libten90.c
-	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_libten90_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_libten90-test_libten90.o -MD -MP -MF $(DEPDIR)/test_libten90-test_libten90.Tpo -c -o test_libten90-test_libten90.o `test -f 'test_libten90.c' || echo '$(srcdir)/'`test_libten90.c
+test_libten90-test_libten90.o: test_libten90.cc
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CXXFLAGS) $(CXXFLAGS) -MT test_libten90-test_libten90.o -MD -MP -MF $(DEPDIR)/test_libten90-test_libten90.Tpo -c -o test_libten90-test_libten90.o `test -f 'test_libten90.cc' || echo '$(srcdir)/'`test_libten90.cc
 	$(am__mv) $(DEPDIR)/test_libten90-test_libten90.Tpo $(DEPDIR)/test_libten90-test_libten90.Po
-#	source='test_libten90.c' object='test_libten90-test_libten90.o' libtool=no \
-#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_libten90_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_libten90-test_libten90.o `test -f 'test_libten90.c' || echo '$(srcdir)/'`test_libten90.c
+#	source='test_libten90.cc' object='test_libten90-test_libten90.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
+#	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CXXFLAGS) $(CXXFLAGS) -c -o test_libten90-test_libten90.o `test -f 'test_libten90.cc' || echo '$(srcdir)/'`test_libten90.cc
 
-test_libten90-test_libten90.obj: test_libten90.c
-	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_libten90_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_libten90-test_libten90.obj -MD -MP -MF $(DEPDIR)/test_libten90-test_libten90.Tpo -c -o test_libten90-test_libten90.obj `if test -f 'test_libten90.c'; then $(CYGPATH_W) 'test_libten90.c'; else $(CYGPATH_W) '$(srcdir)/test_libten90.c'; fi`
+test_libten90-test_libten90.obj: test_libten90.cc
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CXXFLAGS) $(CXXFLAGS) -MT test_libten90-test_libten90.obj -MD -MP -MF $(DEPDIR)/test_libten90-test_libten90.Tpo -c -o test_libten90-test_libten90.obj `if test -f 'test_libten90.cc'; then $(CYGPATH_W) 'test_libten90.cc'; else $(CYGPATH_W) '$(srcdir)/test_libten90.cc'; fi`
 	$(am__mv) $(DEPDIR)/test_libten90-test_libten90.Tpo $(DEPDIR)/test_libten90-test_libten90.Po
-#	source='test_libten90.c' object='test_libten90-test_libten90.obj' libtool=no \
-#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_libten90_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_libten90-test_libten90.obj `if test -f 'test_libten90.c'; then $(CYGPATH_W) 'test_libten90.c'; else $(CYGPATH_W) '$(srcdir)/test_libten90.c'; fi`
+#	source='test_libten90.cc' object='test_libten90-test_libten90.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
+#	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_libten90_CXXFLAGS) $(CXXFLAGS) -c -o test_libten90-test_libten90.obj `if test -f 'test_libten90.cc'; then $(CYGPATH_W) 'test_libten90.cc'; else $(CYGPATH_W) '$(srcdir)/test_libten90.cc'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

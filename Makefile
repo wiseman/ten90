@@ -298,8 +298,6 @@ DIST_SUBDIRS = $(subdirs) gtest
 lib_LTLIBRARIES = libten90.la
 libten90_la_SOURCES = libten90.c
 include_HEADERS = ten90.h
-
-#noinst_PROGRAMS = test_libten90
 dump1090_SOURCES = dump1090.c anet.c
 dump1090_CFLAGS = $(libten90_la_CFLAGS)
 dump1090_LDADD = $(libten90_la_LIBADD) libten90.la
