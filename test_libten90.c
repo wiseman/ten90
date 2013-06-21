@@ -21,7 +21,7 @@ int main(void) {
     Ten90DecodeFrame(msg, &context, &mm);
     Ten90DisplayFrame(&mm);
     assert(mm.addr == 0xa93780);
-    assert(mm.msgtype == 11);
+    assert(mm.msg_type == 11);
   }
 
   {
@@ -29,7 +29,7 @@ int main(void) {
     Ten90DecodeFrame(msg, &context, &mm);
     Ten90DisplayFrame(&mm);
     assert(mm.addr == 0x29400e);
-    assert(mm.msgtype == 0);
+    assert(mm.msg_type == 0);
   }
 
   Ten90ContextDestroy(&context);

@@ -1,3 +1,35 @@
+// ten90, a Mode S/A/C message decoding library.
+//
+// Copyright (C) 2012 by Salvatore Sanfilippo <antirez@gmail.com>
+// Copyright 2013 John Wiseman <jjwiseman@gmail.com>
+//
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+//
+//  * Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+//
+//  * Redistributions in binary form must reproduce the above
+//    copyright notice, this list of conditions and the following
+//    disclaimer in the documentation and/or other materials provided
+//    with the distribution.
+
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+// FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+// COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+// INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+// OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #include "ten90.h"
 
 #include <math.h>
@@ -36,14 +68,14 @@ int Ten90DecodeFrame(unsigned char *bytes,
   bytes = frame->msg;
 
   // Get the message type ASAP as other operations depend on this
-  frame->msgtype = bytes[0] >> 3;  // Downlink Format
-  frame->msgbits = Ten90ModeSMessageLenByType(frame->msgtype);
-  frame->crc = Ten90ModeSChecksum(bytes, frame->msgbits);
+  frame->msg_type = bytes[0] >> 3;  // Downlink Format
+  frame->msg_number_bits = Ten90ModeSMessageLenByType(frame->msg_type);
+  frame->crc = Ten90ModeSChecksum(bytes, frame->msg_number_bits);
 
   if ((frame->crc) && (context->nfix_crc) &&
-      ((frame->msgtype == 17) || (frame->msgtype == 18))) {
-    //  if ((frame->crc) && (Modes.nfix_crc) && ((frame->msgtype == 11) ||
-    //  (frame->msgtype == 17))) {
+      ((frame->msg_type == 17) || (frame->msg_type == 18))) {
+    //  if ((frame->crc) && (Modes.nfix_crc) && ((frame->msg_type == 11) ||
+    //  (frame->msg_type == 17))) {
     //
     // Fixing single bit errors in DF-11 is a bit dodgy because we
     // have no way to know for sure if the crc is supposed to be 0 or
@@ -55,21 +87,21 @@ int Ten90DecodeFrame(unsigned char *bytes,
     // DF-11's before using the results. Perhaps check the ICAO
     // against known aircraft, and check IID against known good
     // IID's. That's a TODO.
-    frame->correctedbits = Ten90FixBitErrors(bytes, frame->msgbits, context->nfix_crc,
-                                          frame->corrected);
+    frame->corrected_bits = Ten90FixBitErrors(
+        bytes, frame->msg_number_bits, context->nfix_crc, frame->corrected);
 
     // If we correct, validate ICAO addr to help filter birthday
     // paradox solutions.
-    if (frame->correctedbits) {
+    if (frame->corrected_bits) {
       uint32_t addr = (bytes[1] << 16) | (bytes[2] << 8) | (bytes[3]);
       if (!Ten90IcaoAddressWasRecentlySeen(addr, context))
-        frame->correctedbits = 0;
+        frame->corrected_bits = 0;
     }
   }
   // Note that most of the other computation happens *after* we fix
   // the single/two bit errors, otherwise we would need to recompute
   // the fields again.
-  if (frame->msgtype == 11) {
+  if (frame->msg_type == 11) {
     // DF 11
     frame->crcok = (frame->crc < 80);
     frame->iid = frame->crc;
@@ -81,7 +113,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
       // whitelist.
       Ten90AddRecentlySeenIcaoAddr(frame->addr, context);
     }
-  } else if (frame->msgtype == 17) {
+  } else if (frame->msg_type == 17) {
     // DF 17
     frame->crcok = (frame->crc == 0);
     frame->addr = (bytes[1] << 16) | (bytes[2] << 8) | (bytes[3]);
@@ -93,7 +125,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
       Ten90AddRecentlySeenIcaoAddr(frame->addr, context);
     }
 
-  } else if (frame->msgtype == 18) {
+  } else if (frame->msg_type == 18) {
     // DF 18
     frame->crcok = (frame->crc == 0);
     frame->addr = (bytes[1] << 16) | (bytes[2] << 8) | (bytes[3]);
@@ -114,70 +146,70 @@ int Ten90DecodeFrame(unsigned char *bytes,
   }
 
   // Fields for DF0, DF16
-  if (frame->msgtype == 0  || frame->msgtype == 16) {
+  if (frame->msg_type == 0  || frame->msg_type == 16) {
     if (bytes[0] & 0x04) {                       // VS Bit
-      frame->bFlags |= MODES_ACFLAGS_AOG_VALID | MODES_ACFLAGS_AOG;
+      frame->flags |= MODES_ACFLAGS_AOG_VALID | MODES_ACFLAGS_AOG;
     } else {
-      frame->bFlags |= MODES_ACFLAGS_AOG_VALID;
+      frame->flags |= MODES_ACFLAGS_AOG_VALID;
     }
   }
 
   // Fields for DF11, DF17
-  if (frame->msgtype == 11 || frame->msgtype == 17) {
+  if (frame->msg_type == 11 || frame->msg_type == 17) {
     if (frame->ca == 4) {
-      frame->bFlags |= MODES_ACFLAGS_AOG_VALID | MODES_ACFLAGS_AOG;
+      frame->flags |= MODES_ACFLAGS_AOG_VALID | MODES_ACFLAGS_AOG;
     } else if (frame->ca == 5) {
-      frame->bFlags |= MODES_ACFLAGS_AOG_VALID;
+      frame->flags |= MODES_ACFLAGS_AOG_VALID;
     }
   }
 
   // Fields for DF5, DF21 = Gillham encoded Squawk
-  if (frame->msgtype == 5  || frame->msgtype == 21) {
+  if (frame->msg_type == 5  || frame->msg_type == 21) {
     int ID13Field = ((bytes[2] << 8) | bytes[3]) & 0x1FFF;
     if (ID13Field) {
-      frame->bFlags |= MODES_ACFLAGS_SQUAWK_VALID;
-      frame->modeA = Ten90DecodeId13Field(ID13Field);
+      frame->flags |= MODES_ACFLAGS_SQUAWK_VALID;
+      frame->mode_a = Ten90DecodeId13Field(ID13Field);
     }
   }
 
   // Fields for DF0, DF4, DF16, DF20 13 bit altitude
-  if (frame->msgtype == 0  || frame->msgtype == 4 ||
-      frame->msgtype == 16 || frame->msgtype == 20) {
+  if (frame->msg_type == 0  || frame->msg_type == 4 ||
+      frame->msg_type == 16 || frame->msg_type == 20) {
     int AC13Field = ((bytes[2] << 8) | bytes[3]) & 0x1FFF;
     if (AC13Field) {
       // Only attempt to decode if a valid (non zero) altitude is
       // present
-      frame->bFlags |= MODES_ACFLAGS_ALTITUDE_VALID;
+      frame->flags |= MODES_ACFLAGS_ALTITUDE_VALID;
       frame->altitude = Ten90DecodeAc13Field(AC13Field, &frame->unit);
     }
   }
 
   // Fields for DF4, DF5, DF20, DF21
-  if ((frame->msgtype == 4) || (frame->msgtype == 20) ||
-      (frame->msgtype == 5) || (frame->msgtype == 21)) {
-    frame->bFlags |= MODES_ACFLAGS_FS_VALID;
+  if ((frame->msg_type == 4) || (frame->msg_type == 20) ||
+      (frame->msg_type == 5) || (frame->msg_type == 21)) {
+    frame->flags |= MODES_ACFLAGS_FS_VALID;
     frame->fs = bytes[0] & 7;               // Flight status for DF4,5,20,21
     if (frame->fs <= 3) {
-      frame->bFlags |= MODES_ACFLAGS_AOG_VALID;
+      frame->flags |= MODES_ACFLAGS_AOG_VALID;
       if (frame->fs & 1)
-      {frame->bFlags |= MODES_ACFLAGS_AOG;}
+      {frame->flags |= MODES_ACFLAGS_AOG;}
     }
   }
 
   // Fields for DF17, DF18_CF0, DF18_CF1, DF18_CF6 squitters
-  if ((frame->msgtype == 17) ||
-      ((frame->msgtype == 18) &&
+  if ((frame->msg_type == 17) ||
+      ((frame->msg_type == 18) &&
        ((frame->ca == 0) || (frame->ca == 1) || (frame->ca == 6)))) {
     // Extended squitter message type
-    int metype = frame->metype = bytes[4] >> 3;
+    int es_type = frame->es_type = bytes[4] >> 3;
     // Extended squitter message subtype
-    int mesub = frame->mesub = bytes[4]  & 7;
+    int es_subtype = frame->es_subtype = bytes[4]  & 7;
 
     // Decode the extended squitter message
-    if (metype >= 1 && metype <= 4) {
+    if (es_type >= 1 && es_type <= 4) {
       // Aircraft Identification and Category
       uint32_t chars;
-      frame->bFlags |= MODES_ACFLAGS_CALLSIGN_VALID;
+      frame->flags |= MODES_ACFLAGS_CALLSIGN_VALID;
 
       chars = (bytes[5] << 16) | (bytes[6] << 8) | (bytes[7]);
       frame->flight[3] = ais_charset[chars & 0x3F]; chars = chars >> 6;
@@ -193,41 +225,44 @@ int Ten90DecodeFrame(unsigned char *bytes,
 
       frame->flight[8] = '\0';
 
-    } else if (metype >= 5 && metype <= 18) {
+    } else if (es_type >= 5 && es_type <= 18) {
       // Position Message
-      frame->raw_latitude  = ((bytes[6] & 3) << 15) | (bytes[7] << 7) | (bytes[8] >> 1);
-      frame->raw_longitude = ((bytes[8] & 1) << 16) | (bytes[9] << 8) | (bytes[10]);
-      frame->bFlags |= (frame->msg[6] & 0x04) ? MODES_ACFLAGS_LLODD_VALID
-                    : MODES_ACFLAGS_LLEVEN_VALID;
-      if (metype >= 9) {
+      frame->raw_latitude  = (((bytes[6] & 3) << 15) | (bytes[7] << 7) |
+                              (bytes[8] >> 1));
+      frame->raw_longitude = (((bytes[8] & 1) << 16) | (bytes[9] << 8) |
+                              (bytes[10]));
+      frame->flags |= (frame->msg[6] & 0x04) ? MODES_ACFLAGS_LLODD_VALID
+                      : MODES_ACFLAGS_LLEVEN_VALID;
+      if (es_type >= 9) {
         // Airborne
         int AC12Field = ((bytes[5] << 4) | (bytes[6] >> 4)) & 0x0FFF;
-        frame->bFlags |= MODES_ACFLAGS_AOG_VALID;
+        frame->flags |= MODES_ACFLAGS_AOG_VALID;
         if (AC12Field) {
           // Only attempt to decode if a valid (non zero) altitude is present
-          frame->bFlags |= MODES_ACFLAGS_ALTITUDE_VALID;
+          frame->flags |= MODES_ACFLAGS_ALTITUDE_VALID;
           frame->altitude = Ten90DecodeAc12Field(AC12Field, &frame->unit);
         }
       } else {                      // Ground
         int movement = ((bytes[4] << 4) | (bytes[5] >> 4)) & 0x007F;
-        frame->bFlags |= MODES_ACFLAGS_AOG_VALID | MODES_ACFLAGS_AOG;
+        frame->flags |= MODES_ACFLAGS_AOG_VALID | MODES_ACFLAGS_AOG;
         if ((movement) && (movement < 125)) {
-          frame->bFlags |= MODES_ACFLAGS_SPEED_VALID;
+          frame->flags |= MODES_ACFLAGS_SPEED_VALID;
           frame->velocity = Ten90DecodeMovementField(movement);
         }
 
         if (bytes[5] & 0x08) {
-          frame->bFlags |= MODES_ACFLAGS_HEADING_VALID;
-          frame->heading = ((((bytes[5] << 4) | (bytes[6] >> 4)) & 0x007F) * 45) >> 4;
+          frame->flags |= MODES_ACFLAGS_HEADING_VALID;
+          frame->heading = (((((bytes[5] << 4) |
+                               (bytes[6] >> 4)) & 0x007F) * 45) >> 4);
         }
       }
 
-    } else if (metype == 19) {
+    } else if (es_type == 19) {
       // Airborne Velocity Message.  Presumably airborne if we get an
       // Airborne Velocity Message
-      frame->bFlags |= MODES_ACFLAGS_AOG_VALID;
+      frame->flags |= MODES_ACFLAGS_AOG_VALID;
 
-      if ( (mesub >= 1) && (mesub <= 4) ) {
+      if ( (es_subtype >= 1) && (es_subtype <= 4) ) {
         int vert_rate = ((bytes[8] & 0x07) << 6) | (bytes[9] >> 2);
         if (vert_rate) {
           --vert_rate;
@@ -235,17 +270,17 @@ int Ten90DecodeFrame(unsigned char *bytes,
             vert_rate = 0 - vert_rate;
           }
           frame->vert_rate =  vert_rate * 64;
-          frame->bFlags |= MODES_ACFLAGS_VERTRATE_VALID;
+          frame->flags |= MODES_ACFLAGS_VERTRATE_VALID;
         }
       }
 
-      if ((mesub == 1) || (mesub == 2)) {
+      if ((es_subtype == 1) || (es_subtype == 2)) {
         int ew_raw = ((bytes[5] & 0x03) << 8) |  bytes[6];
         int ew_vel = ew_raw - 1;
         int ns_raw = ((bytes[7] & 0x7F) << 3) | (bytes[8] >> 5);
         int ns_vel = ns_raw - 1;
 
-        if (mesub == 2) {
+        if (es_subtype == 2) {
           // If (supersonic) unit is 4 kts
           ns_vel = ns_vel << 2;
           ew_vel = ew_vel << 2;
@@ -253,7 +288,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
 
         if (ew_raw) {
           // Do East/West
-          frame->bFlags |= MODES_ACFLAGS_EWSPEED_VALID;
+          frame->flags |= MODES_ACFLAGS_EWSPEED_VALID;
           if (bytes[5] & 0x04)
           {ew_vel = 0 - ew_vel;}
           frame->ew_velocity = ew_vel;
@@ -261,7 +296,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
 
         if (ns_raw) {
           // Do North/South
-          frame->bFlags |= MODES_ACFLAGS_NSSPEED_VALID;
+          frame->flags |= MODES_ACFLAGS_NSSPEED_VALID;
           if (bytes[7] & 0x80)
           {ns_vel = 0 - ns_vel;}
           frame->ns_velocity = ns_vel;
@@ -269,9 +304,9 @@ int Ten90DecodeFrame(unsigned char *bytes,
 
         if (ew_raw && ns_raw) {
           // Compute velocity and angle from the two speed components
-          frame->bFlags |= (MODES_ACFLAGS_SPEED_VALID |
-                         MODES_ACFLAGS_HEADING_VALID |
-                         MODES_ACFLAGS_NSEWSPD_VALID);
+          frame->flags |= (MODES_ACFLAGS_SPEED_VALID |
+                           MODES_ACFLAGS_HEADING_VALID |
+                           MODES_ACFLAGS_NSEWSPD_VALID);
           frame->velocity = (int) sqrt((ns_vel * ns_vel) + (ew_vel * ew_vel));
           if (frame->velocity) {
             frame->heading = (int) (atan2(ew_vel, ns_vel) * 180.0 / M_PI);
@@ -279,18 +314,18 @@ int Ten90DecodeFrame(unsigned char *bytes,
             if (frame->heading < 0) frame->heading += 360;
           }
         }
-      } else if (mesub == 3 || mesub == 4) {
+      } else if (es_subtype == 3 || es_subtype == 4) {
         int airspeed = ((bytes[7] & 0x7f) << 3) | (bytes[8] >> 5);
         if (airspeed) {
-          frame->bFlags |= MODES_ACFLAGS_SPEED_VALID;
+          frame->flags |= MODES_ACFLAGS_SPEED_VALID;
           --airspeed;
-          if (mesub == 4)  // If (supersonic) unit is 4 kts
+          if (es_subtype == 4)  // If (supersonic) unit is 4 kts
           {airspeed = airspeed << 2;}
           frame->velocity =  airspeed;
         }
 
         if (bytes[5] & 0x04) {
-          frame->bFlags |= MODES_ACFLAGS_HEADING_VALID;
+          frame->flags |= MODES_ACFLAGS_HEADING_VALID;
           frame->heading = ((((bytes[5] & 0x03) << 8) | bytes[6]) * 45) >> 7;
         }
       }
@@ -298,11 +333,11 @@ int Ten90DecodeFrame(unsigned char *bytes,
   }
 
   // Fields for DF20, DF21 Comm-B
-  if ((frame->msgtype == 20) || (frame->msgtype == 21)) {
+  if ((frame->msg_type == 20) || (frame->msg_type == 21)) {
     if (bytes[4] == 0x20) {
       // Aircraft Identification
       uint32_t chars;
-      frame->bFlags |= MODES_ACFLAGS_CALLSIGN_VALID;
+      frame->flags |= MODES_ACFLAGS_CALLSIGN_VALID;
       chars = (bytes[5] << 16) | (bytes[6] << 8) | (bytes[7]);
       frame->flight[3] = ais_charset[chars & 0x3F]; chars = chars >> 6;
       frame->flight[2] = ais_charset[chars & 0x3F]; chars = chars >> 6;
@@ -322,31 +357,31 @@ int Ten90DecodeFrame(unsigned char *bytes,
 }
 
 
-void Ten90DecodeModeAFrame(Ten90Frame *frame, int ModeA) {
+void Ten90DecodeModeAFrame(Ten90Frame *frame, int mode_a) {
   // Valid Mode S DF's are DF-00 to DF-31.  so use 32 to indicate Mode
   // A/C
-  frame->msgtype = 32;
+  frame->msg_type = 32;
 
   // Fudge up a Mode S style data stream
-  frame->msgbits = 16;
-  frame->msg[0] = (ModeA >> 8);
-  frame->msg[1] = (ModeA);
+  frame->msg_number_bits = 16;
+  frame->msg[0] = (mode_a >> 8);
+  frame->msg[1] = (mode_a);
 
   // Fudge an ICAO address based on Mode A (remove the Ident bit) Use
   // an upper address byte of FF, since this is ICAO unallocated
-  frame->addr = 0x00FF0000 | (ModeA & 0x0000FF7F);
+  frame->addr = 0x00FF0000 | (mode_a & 0x0000FF7F);
 
   // Set the Identity field to ModeA
-  frame->modeA   = ModeA & 0x7777;
-  frame->bFlags |= MODES_ACFLAGS_SQUAWK_VALID;
+  frame->mode_a   = mode_a & 0x7777;
+  frame->flags |= MODES_ACFLAGS_SQUAWK_VALID;
 
   // Flag ident in flight status
-  frame->fs = ModeA & 0x0080;
+  frame->fs = mode_a & 0x0080;
 
   // Not much else we can tell from a Mode A/C reply.  Just fudge up a
   // few bits to keep other code happy
   frame->crcok = 1;
-  frame->correctedbits = 0;
+  frame->corrected_bits = 0;
 }
 
 // ========== Mode S detection and decoding
@@ -841,30 +876,30 @@ static char *fs_str[8] = {
     /* 7 */ "Value 7 is not assigned"
 };
 
-static char *getMEDescription(int metype, int mesub) {
+static char *getMEDescription(int es_type, int mesub) {
     char *mename = "Unknown";
 
-    if (metype >= 1 && metype <= 4)
+    if (es_type >= 1 && es_type <= 4)
         mename = "Aircraft Identification and Category";
-    else if (metype >= 5 && metype <= 8)
+    else if (es_type >= 5 && es_type <= 8)
         mename = "Surface Position";
-    else if (metype >= 9 && metype <= 18)
+    else if (es_type >= 9 && es_type <= 18)
         mename = "Airborne Position (Baro Altitude)";
-    else if (metype == 19 && mesub >=1 && mesub <= 4)
+    else if (es_type == 19 && mesub >=1 && mesub <= 4)
         mename = "Airborne Velocity";
-    else if (metype >= 20 && metype <= 22)
+    else if (es_type >= 20 && es_type <= 22)
         mename = "Airborne Position (GNSS Height)";
-    else if (metype == 23 && mesub == 0)
+    else if (es_type == 23 && mesub == 0)
         mename = "Test Message";
-    else if (metype == 24 && mesub == 1)
+    else if (es_type == 24 && mesub == 1)
         mename = "Surface System Status";
-    else if (metype == 28 && mesub == 1)
+    else if (es_type == 28 && mesub == 1)
         mename = "Extended Squitter Aircraft Status (Emergency)";
-    else if (metype == 28 && mesub == 2)
+    else if (es_type == 28 && mesub == 2)
         mename = "Extended Squitter Aircraft Status (1090ES TCAS RA)";
-    else if (metype == 29 && (mesub == 0 || mesub == 1))
+    else if (es_type == 29 && (mesub == 0 || mesub == 1))
         mename = "Target State and Status Message";
-    else if (metype == 31 && (mesub == 0 || mesub == 1))
+    else if (es_type == 31 && (mesub == 0 || mesub == 1))
         mename = "Aircraft Operational Status Message";
     return mename;
 }
@@ -894,7 +929,7 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
   /*     printf("*"); */
 
   printf("*");
-  for (j = 0; j < frame->msgbits/8; j++) printf("%02x", frame->msg[j]);
+  for (j = 0; j < frame->msg_number_bits/8; j++) printf("%02x", frame->msg[j]);
   printf(";\n");
 
   /* if (Modes.raw) { */
@@ -902,22 +937,22 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
   /*     return;         // Enough for --raw mode */
   /* } */
 
-  if (frame->msgtype < 32)
+  if (frame->msg_type < 32)
     printf("CRC: %06x (%s)\n", (int)frame->crc, frame->crcok ? "ok" : "wrong");
 
-  if (frame->correctedbits != 0)
-    printf("No. of bit errors fixed: %d\n", frame->correctedbits);
+  if (frame->corrected_bits != 0)
+    printf("No. of bit errors fixed: %d\n", frame->corrected_bits);
 
-  if (frame->msgtype == 0) {
+  if (frame->msg_type == 0) {
     // DF 0
     printf("DF 0: Short Air-Air Surveillance.\n");
     printf("  Altitude       : %d %s\n", frame->altitude,
            (frame->unit == MODES_UNIT_METERS) ? "meters" : "feet");
     printf("  ICAO Address   : %06x\n", frame->addr);
 
-  } else if (frame->msgtype == 4 || frame->msgtype == 20) {
-    printf("DF %d: %s, Altitude Reply.\n", frame->msgtype,
-           (frame->msgtype == 4) ? "Surveillance" : "Comm-B");
+  } else if (frame->msg_type == 4 || frame->msg_type == 20) {
+    printf("DF %d: %s, Altitude Reply.\n", frame->msg_type,
+           (frame->msg_type == 4) ? "Surveillance" : "Comm-B");
     printf("  Flight Status  : %s\n", fs_str[frame->fs]);
     printf("  DR             : %d\n", ((frame->msg[1] >> 3) & 0x1F));
     printf("  UM             : %d\n",
@@ -926,7 +961,7 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
            (frame->unit == MODES_UNIT_METERS) ? "meters" : "feet");
     printf("  ICAO Address   : %06x\n", frame->addr);
 
-    if (frame->msgtype == 20) {
+    if (frame->msg_type == 20) {
       printf("  Comm-B BDS     : %x\n", frame->msg[4]);
       // Decode the extended squitter message
       if (frame->msg[4] == 0x20) {
@@ -934,17 +969,17 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
         printf("    BDS 2,0 Aircraft Identification : %s\n", frame->flight);
       }
     }
-  } else if (frame->msgtype == 5 || frame->msgtype == 21) {
-    printf("DF %d: %s, Identity Reply.\n", frame->msgtype,
-           (frame->msgtype == 5) ? "Surveillance" : "Comm-B");
+  } else if (frame->msg_type == 5 || frame->msg_type == 21) {
+    printf("DF %d: %s, Identity Reply.\n", frame->msg_type,
+           (frame->msg_type == 5) ? "Surveillance" : "Comm-B");
     printf("  Flight Status  : %s\n", fs_str[frame->fs]);
     printf("  DR             : %d\n", ((frame->msg[1] >> 3) & 0x1F));
     printf("  UM             : %d\n",
            (((frame->msg[1]  & 7) << 3) | (frame->msg[2] >> 5)));
-    printf("  Squawk         : %x\n", frame->modeA);
+    printf("  Squawk         : %x\n", frame->mode_a);
     printf("  ICAO Address   : %06x\n", frame->addr);
 
-    if (frame->msgtype == 21) {
+    if (frame->msg_type == 21) {
       printf("  Comm-B BDS     : %x\n", frame->msg[4]);
 
       // Decode the extended squitter message
@@ -953,7 +988,7 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
         printf("    BDS 2,0 Aircraft Identification : %s\n", frame->flight);
       }
     }
-  } else if (frame->msgtype == 11) {
+  } else if (frame->msg_type == 11) {
     // DF 11
     printf("DF 11: All Call Reply.\n");
     printf("  Capability  : %d (%s)\n", frame->ca, ca_str[frame->ca]);
@@ -963,85 +998,87 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
     else
     {printf("  IID         : II-%02d\n", frame->iid);}
 
-  } else if (frame->msgtype == 16) {
+  } else if (frame->msg_type == 16) {
     // DF 16
     printf("DF 16: Long Air to Air ACAS\n");
 
-  } else if (frame->msgtype == 17) {
+  } else if (frame->msg_type == 17) {
     // DF 17
     printf("DF 17: ADS-B message.\n");
     printf("  Capability     : %d (%s)\n", frame->ca, ca_str[frame->ca]);
     printf("  ICAO Address   : %06x\n", frame->addr);
-    printf("  Extended Squitter  Type: %d\n", frame->metype);
-    printf("  Extended Squitter  Sub : %d\n", frame->mesub);
+    printf("  Extended Squitter  Type: %d\n", frame->es_type);
+    printf("  Extended Squitter  Sub : %d\n", frame->es_subtype);
     printf("  Extended Squitter  Name: %s\n",
-           getMEDescription(frame->metype, frame->mesub));
+           getMEDescription(frame->es_type, frame->es_subtype));
     // Decode the extended squitter message
-    if (frame->metype >= 1 && frame->metype <= 4) {
+    if (frame->es_type >= 1 && frame->es_type <= 4) {
       // Aircraft identification
-      printf("    Aircraft Type  : %c%d\n", ('A' + 4 - frame->metype), frame->mesub);
+      printf("    Aircraft Type  : %c%d\n",
+             ('A' + 4 - frame->es_type), frame->es_subtype);
       printf("    Identification : %s\n", frame->flight);
 
-      // } else if (frame->metype >= 5 && frame->metype <= 8) { // Surface position
+      // } else if (frame->es_type >= 5 && frame->es_type <= 8) {
+      //   // Surface position
 
-    } else if (frame->metype >= 9 && frame->metype <= 18) {
+    } else if (frame->es_type >= 9 && frame->es_type <= 18) {
       // Airborne position Baro
       printf("    F flag   : %s\n", (frame->msg[6] & 0x04) ? "odd" : "even");
       printf("    T flag   : %s\n", (frame->msg[6] & 0x08) ? "UTC" : "non-UTC");
       printf("    Altitude : %d feet\n", frame->altitude);
-      if (frame->bFlags & MODES_ACFLAGS_LATLON_VALID) {
-        printf("    Latitude : %f\n", frame->fLat);
-        printf("    Longitude: %f\n", frame->fLon);
+      if (frame->flags & MODES_ACFLAGS_LATLON_VALID) {
+        printf("    Latitude : %f\n", frame->decoded_lat);
+        printf("    Longitude: %f\n", frame->decoded_lon);
       } else {
         printf("    Latitude : %d (not decoded)\n", frame->raw_latitude);
         printf("    Longitude: %d (not decoded)\n", frame->raw_longitude);
       }
 
-    } else if (frame->metype == 19) {
+    } else if (frame->es_type == 19) {
       // Airborne Velocity
-      if (frame->mesub == 1 || frame->mesub == 2) {
+      if (frame->es_subtype == 1 || frame->es_subtype == 2) {
         printf("    EW status         : %s\n",
-               (frame->bFlags & MODES_ACFLAGS_EWSPEED_VALID) ?
+               (frame->flags & MODES_ACFLAGS_EWSPEED_VALID) ?
                "Valid" : "Unavailable");
         printf("    EW velocity       : %d\n", frame->ew_velocity);
         printf("    NS status         : %s\n",
-               (frame->bFlags & MODES_ACFLAGS_NSSPEED_VALID) ?
+               (frame->flags & MODES_ACFLAGS_NSSPEED_VALID) ?
                "Valid" : "Unavailable");
         printf("    NS velocity       : %d\n", frame->ns_velocity);
         printf("    Vertical status   : %s\n",
-               (frame->bFlags & MODES_ACFLAGS_VERTRATE_VALID) ?
+               (frame->flags & MODES_ACFLAGS_VERTRATE_VALID) ?
                "Valid" : "Unavailable");
         printf("    Vertical rate src : %d\n", ((frame->msg[8] >> 4) & 1));
         printf("    Vertical rate     : %d\n", frame->vert_rate);
 
-      } else if (frame->mesub == 3 || frame->mesub == 4) {
+      } else if (frame->es_subtype == 3 || frame->es_subtype == 4) {
         printf("    Heading status    : %s\n",
-               (frame->bFlags & MODES_ACFLAGS_HEADING_VALID) ?
+               (frame->flags & MODES_ACFLAGS_HEADING_VALID) ?
                "Valid" : "Unavailable");
         printf("    Heading           : %d\n", frame->heading);
         printf("    Airspeed status   : %s\n",
-               (frame->bFlags & MODES_ACFLAGS_SPEED_VALID) ?
+               (frame->flags & MODES_ACFLAGS_SPEED_VALID) ?
                "Valid" : "Unavailable");
         printf("    Airspeed          : %d\n", frame->velocity);
         printf("    Vertical status   : %s\n",
-               (frame->bFlags & MODES_ACFLAGS_VERTRATE_VALID) ?
+               (frame->flags & MODES_ACFLAGS_VERTRATE_VALID) ?
                "Valid" : "Unavailable");
         printf("    Vertical rate src : %d\n", ((frame->msg[8] >> 4) & 1));
         printf("    Vertical rate     : %d\n", frame->vert_rate);
 
       } else {
         printf("    Unrecognized ME subtype: %d subtype: %d\n",
-               frame->metype, frame->mesub);
+               frame->es_type, frame->es_subtype);
       }
 
-      // } else if (frame->metype >= 20 && frame->metype <= 22) {
+      // } else if (frame->es_type >= 20 && frame->es_type <= 22) {
       //   // Airborne position GNSS
     } else {
       printf("    Unrecognized ME type: %d subtype: %d\n",
-             frame->metype, frame->mesub);
+             frame->es_type, frame->es_subtype);
     }
 
-  } else if (frame->msgtype == 18) {
+  } else if (frame->msg_type == 18) {
     // DF 18
     printf("DF 18: Extended Squitter.\n");
     printf("  Control Field : %d (%s)\n", frame->ca, cf_str[frame->ca]);
@@ -1051,104 +1088,106 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
       } else {
         printf("  ICAO Address  : %06x\n", frame->addr);
       }
-      printf("  Extended Squitter  Type: %d\n", frame->metype);
-      printf("  Extended Squitter  Sub : %d\n", frame->mesub);
+      printf("  Extended Squitter  Type: %d\n", frame->es_type);
+      printf("  Extended Squitter  Sub : %d\n", frame->es_subtype);
       printf("  Extended Squitter  Name: %s\n",
-             getMEDescription(frame->metype, frame->mesub));
+             getMEDescription(frame->es_type, frame->es_subtype));
 
       // Decode the extended squitter message
-      if (frame->metype >= 1 && frame->metype <= 4) {
+      if (frame->es_type >= 1 && frame->es_type <= 4) {
         // Aircraft identification
         printf("    Aircraft Type  : %c%d\n",
-               ('A' + 4 - frame->metype), frame->mesub);
+               ('A' + 4 - frame->es_type), frame->es_subtype);
         printf("    Identification : %s\n", frame->flight);
 
-        // } else if (frame->metype >= 5 && frame->metype <= 8) { // Surface position
+        // } else if (frame->es_type >= 5 && frame->es_type <= 8) {
+        //   // Surface position
 
-      } else if (frame->metype >= 9 && frame->metype <= 18) {
+      } else if (frame->es_type >= 9 && frame->es_type <= 18) {
         // Airborne position Baro
         printf("    F flag   : %s\n", (frame->msg[6] & 0x04) ? "odd" : "even");
-        printf("    T flag   : %s\n", (frame->msg[6] & 0x08) ? "UTC" : "non-UTC");
+        printf("    T flag   : %s\n",
+               (frame->msg[6] & 0x08) ? "UTC" : "non-UTC");
         printf("    Altitude : %d feet\n", frame->altitude);
-        if (frame->bFlags & MODES_ACFLAGS_LATLON_VALID) {
-          printf("    Latitude : %f\n", frame->fLat);
-          printf("    Longitude: %f\n", frame->fLon);
+        if (frame->flags & MODES_ACFLAGS_LATLON_VALID) {
+          printf("    Latitude : %f\n", frame->decoded_lat);
+          printf("    Longitude: %f\n", frame->decoded_lon);
         } else {
           printf("    Latitude : %d (not decoded)\n", frame->raw_latitude);
           printf("    Longitude: %d (not decoded)\n", frame->raw_longitude);
         }
 
-      } else if (frame->metype == 19) {
+      } else if (frame->es_type == 19) {
         // Airborne Velocity
-        if (frame->mesub == 1 || frame->mesub == 2) {
+        if (frame->es_subtype == 1 || frame->es_subtype == 2) {
           printf("    EW status         : %s\n",
-                 (frame->bFlags & MODES_ACFLAGS_EWSPEED_VALID) ?
+                 (frame->flags & MODES_ACFLAGS_EWSPEED_VALID) ?
                  "Valid" : "Unavailable");
           printf("    EW velocity       : %d\n", frame->ew_velocity);
           printf("    NS status         : %s\n",
-                 (frame->bFlags & MODES_ACFLAGS_NSSPEED_VALID) ?
+                 (frame->flags & MODES_ACFLAGS_NSSPEED_VALID) ?
                  "Valid" : "Unavailable");
           printf("    NS velocity       : %d\n", frame->ns_velocity);
           printf("    Vertical status   : %s\n",
-                 (frame->bFlags & MODES_ACFLAGS_VERTRATE_VALID) ?
+                 (frame->flags & MODES_ACFLAGS_VERTRATE_VALID) ?
                  "Valid" : "Unavailable");
           printf("    Vertical rate src : %d\n", ((frame->msg[8] >> 4) & 1));
           printf("    Vertical rate     : %d\n", frame->vert_rate);
 
-        } else if (frame->mesub == 3 || frame->mesub == 4) {
+        } else if (frame->es_subtype == 3 || frame->es_subtype == 4) {
           printf("    Heading status    : %s\n",
-                 (frame->bFlags & MODES_ACFLAGS_HEADING_VALID) ?
+                 (frame->flags & MODES_ACFLAGS_HEADING_VALID) ?
                  "Valid" : "Unavailable");
           printf("    Heading           : %d\n", frame->heading);
           printf("    Airspeed status   : %s\n",
-                 (frame->bFlags & MODES_ACFLAGS_SPEED_VALID) ?
+                 (frame->flags & MODES_ACFLAGS_SPEED_VALID) ?
                  "Valid" : "Unavailable");
           printf("    Airspeed          : %d\n", frame->velocity);
           printf("    Vertical status   : %s\n",
-                 (frame->bFlags & MODES_ACFLAGS_VERTRATE_VALID) ?
+                 (frame->flags & MODES_ACFLAGS_VERTRATE_VALID) ?
                  "Valid" : "Unavailable");
           printf("    Vertical rate src : %d\n", ((frame->msg[8] >> 4) & 1));
           printf("    Vertical rate     : %d\n", frame->vert_rate);
 
         } else {
           printf("    Unrecognized ME subtype: %d subtype: %d\n",
-                 frame->metype, frame->mesub);
+                 frame->es_type, frame->es_subtype);
         }
 
-        //  } else if (frame->metype >= 20 && frame->metype <= 22) {
+        //  } else if (frame->es_type >= 20 && frame->es_type <= 22) {
         //    // Airborne position GNSS
 
       } else {
         printf("    Unrecognized ME type: %d subtype: %d\n",
-               frame->metype, frame->mesub);
+               frame->es_type, frame->es_subtype);
       }
     }
 
-  } else if (frame->msgtype == 19) {
+  } else if (frame->msg_type == 19) {
     // DF 19
     printf("DF 19: Military Extended Squitter.\n");
 
-  } else if (frame->msgtype == 22) {
+  } else if (frame->msg_type == 22) {
     // DF 22
     printf("DF 22: Military Use.\n");
 
-  } else if (frame->msgtype == 24) {
+  } else if (frame->msg_type == 24) {
     // DF 24
     printf("DF 24: Comm D Extended Length Message.\n");
 
-  } else if (frame->msgtype == 32) {
+  } else if (frame->msg_type == 32) {
     // DF 32 is special code we use for Mode A/C
     printf("SSR : Mode A/C Reply.\n");
     if (frame->fs & 0x0080) {
-      printf("  Mode A : %04x IDENT\n", frame->modeA);
+      printf("  Mode A : %04x IDENT\n", frame->mode_a);
     } else {
-      printf("  Mode A : %04x\n", frame->modeA);
-      if (frame->bFlags & MODES_ACFLAGS_ALTITUDE_VALID)
+      printf("  Mode A : %04x\n", frame->mode_a);
+      if (frame->flags & MODES_ACFLAGS_ALTITUDE_VALID)
       {printf("  Mode C : %d feet\n", frame->altitude);}
     }
 
   } else {
-    printf("DF %d: Unknown DF Format.\n", frame->msgtype);
+    printf("DF %d: Unknown DF Format.\n", frame->msg_type);
   }
 
   printf("\n");

@@ -1194,7 +1194,7 @@ int DetectModeA(uint16_t *m, Ten90Frame *mm)
     {return (ModeABits = 0);}
 
   fSig            = (fSig + 0x7F) >> 8;
-  mm->signalLevel = ((fSig < 255) ? fSig : 255);
+  mm->signal_level = ((fSig < 255) ? fSig : 255);
 
   return ModeABits;
 }
@@ -1247,9 +1247,9 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
     // Rather than clear the whole mm structure, just clear the parts which are required. The clear
     // is required for every bit of the input stream, and we don't want to be memset-ing the whole
     // ten90_mode_s_message structure two million times per second if we don't have to..
-    mm.bFlags          =
+    mm.flags          =
       mm.crcok           =
-      mm.correctedbits   = 0;
+      mm.corrected_bits   = 0;
 
     if (!use_correction)  // This is not a re-try with phase correction
       {                 // so try to find a new preamble
@@ -1260,7 +1260,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 
             if (ModeA) // We have found a valid ModeA/C in the data
               {
-                mm.timestampMsg = Modes.timestampBlk + ((j+1) * 6);
+                mm.msg_timestamp = Modes.timestampBlk + ((j+1) * 6);
 
                 // Decode the received message
                 Ten90DecodeModeAFrame(&mm, ModeA);
@@ -1455,9 +1455,9 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
          && (errors      <= MODES_MSG_ENCODER_ERRS) ) {
 
       // Set initial mm structure details
-      mm.timestampMsg = Modes.timestampBlk + (j*6);
+      mm.msg_timestamp = Modes.timestampBlk + (j*6);
       sigStrength    = (sigStrength + 0x7F) >> 8;
-      mm.signalLevel = ((sigStrength < 255) ? sigStrength : 255);
+      mm.signal_level = ((sigStrength < 255) ? sigStrength : 255);
       mm.phase_corrected = use_correction;
 
       // Decode the received message
@@ -1465,7 +1465,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 
       // Update statistics
       if (Modes.stats) {
-        if (mm.crcok || use_correction || mm.correctedbits) {
+        if (mm.crcok || use_correction || mm.corrected_bits) {
 
           if (use_correction) {
             switch (errors) {
@@ -1483,7 +1483,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
             }
           }
 
-          if (mm.correctedbits == 0) {
+          if (mm.corrected_bits == 0) {
             if (use_correction) {
               if (mm.crcok) {Modes.stat_ph_goodcrc++;}
               else          {Modes.stat_ph_badcrc++;}
@@ -1495,17 +1495,17 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
           } else if (use_correction) {
             Modes.stat_ph_badcrc++;
             Modes.stat_ph_fixed++;
-            if ( (mm.correctedbits)
-                 && (mm.correctedbits <= MODES_MAX_BITERRORS) ) {
-              Modes.stat_ph_bit_fix[mm.correctedbits-1] += 1;
+            if ( (mm.corrected_bits)
+                 && (mm.corrected_bits <= MODES_MAX_BITERRORS) ) {
+              Modes.stat_ph_bit_fix[mm.corrected_bits - 1] += 1;
             }
 
           } else {
             Modes.stat_badcrc++;
             Modes.stat_fixed++;
-            if ( (mm.correctedbits)
-                 && (mm.correctedbits <= MODES_MAX_BITERRORS) ) {
-              Modes.stat_bit_fix[mm.correctedbits-1] += 1;
+            if ( (mm.corrected_bits)
+                 && (mm.corrected_bits <= MODES_MAX_BITERRORS) ) {
+              Modes.stat_bit_fix[mm.corrected_bits - 1] += 1;
             }
           }
         }
@@ -1516,11 +1516,11 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
         if (Modes.debug & MODES_DEBUG_DEMOD)
           dumpRawMessage("Demodulated with 0 errors", msg, m, j);
         else if (Modes.debug & MODES_DEBUG_BADCRC &&
-                 mm.msgtype == 17 &&
-                 (!mm.crcok || mm.correctedbits != 0))
+                 mm.msg_type == 17 &&
+                 (!mm.crcok || mm.corrected_bits != 0))
           dumpRawMessage("Decoded with bad CRC", msg, m, j);
         else if (Modes.debug & MODES_DEBUG_GOODCRC && mm.crcok &&
-                 mm.correctedbits == 0)
+                 mm.corrected_bits == 0)
           dumpRawMessage("Decoded with good CRC", msg, m, j);
       }
 
@@ -1540,7 +1540,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
     }
 
     // Retry with phase correction if enabled, necessary and possible.
-    if (Modes.phase_enhance && !mm.crcok && !mm.correctedbits && !use_correction && j && detectOutOfPhase(pPreamble)) {
+    if (Modes.phase_enhance && !mm.crcok && !mm.corrected_bits && !use_correction && j && detectOutOfPhase(pPreamble)) {
       use_correction = 1; j--;
     } else {
       use_correction = 0;
@@ -1575,7 +1575,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 // processing and visualization
 //
 void useModesMessage(Ten90Frame *mm) {
-  if ((Modes.check_crc == 0) || (mm->crcok) || (mm->correctedbits)) { // not checking, ok or fixed
+  if ((Modes.check_crc == 0) || (mm->crcok) || (mm->corrected_bits)) { // not checking, ok or fixed
 
     // Track aircrafts if...
     if ( (Modes.interactive)          //       in interactive mode
@@ -1611,20 +1611,20 @@ struct aircraft *interactiveCreateAircraft(Ten90Frame *mm) {
   // Now initialise things that should not be 0/NULL to their defaults
   a->addr = mm->addr;
   a->lat  = a->lon = 0.0;
-  memset(a->signalLevel, mm->signalLevel, 8); // First time, initialise everything
+  memset(a->signalLevel, mm->signal_level, 8); // First time, initialise everything
   // to the first signal strength
 
   // mm->msgtype 32 is used to represent Mode A/C. These values can never change, so
   // set them once here during initialisation, and don't bother to set them every
   // time this ModeA/C is received again in the future
-  if (mm->msgtype == 32) {
-    int modeC      = Ten90ModeAToModeC(mm->modeA | mm->fs);
+  if (mm->msg_type == 32) {
+    int modeC      = Ten90ModeAToModeC(mm->mode_a | mm->fs);
     a->modeACflags = MODEAC_MSG_FLAG;
     if (modeC < -12) {
       a->modeACflags |= MODEAC_MSG_MODEA_ONLY;
     } else {
       mm->altitude = modeC * 100;
-      mm->bFlags  |= MODES_ACFLAGS_ALTITUDE_VALID;
+      mm->flags  |= MODES_ACFLAGS_ALTITUDE_VALID;
     }
   }
   return (a);
@@ -1946,7 +1946,7 @@ struct aircraft *interactiveReceiveData(Ten90Frame *mm) {
   struct aircraft *a, *aux;
 
   // Return if (checking crc) AND (not crcok) AND (not fixed)
-  if (Modes.check_crc && (mm->crcok == 0) && (mm->correctedbits == 0))
+  if (Modes.check_crc && (mm->crcok == 0) && (mm->corrected_bits == 0))
     return NULL;
 
   // Loookup our aircraft or create a new one
@@ -1974,18 +1974,18 @@ struct aircraft *interactiveReceiveData(Ten90Frame *mm) {
     }
   }
 
-  a->signalLevel[a->messages & 7] = mm->signalLevel;// replace the 8th oldest signal strength
+  a->signalLevel[a->messages & 7] = mm->signal_level;// replace the 8th oldest signal strength
   a->seen      = time(NULL);
-  a->timestamp = mm->timestampMsg;
+  a->timestamp = mm->msg_timestamp;
   a->messages++;
 
   // If a (new) CALLSIGN has been received, copy it to the aircraft structure
-  if (mm->bFlags & MODES_ACFLAGS_CALLSIGN_VALID) {
+  if (mm->flags & MODES_ACFLAGS_CALLSIGN_VALID) {
     memcpy(a->flight, mm->flight, sizeof(a->flight));
   }
 
   // If a (new) ALTITUDE has been received, copy it to the aircraft structure
-  if (mm->bFlags & MODES_ACFLAGS_ALTITUDE_VALID) {
+  if (mm->flags & MODES_ACFLAGS_ALTITUDE_VALID) {
     if ( (a->modeCcount)                   // if we've a modeCcount already
          && (a->altitude  != mm->altitude ) ) // and Altitude has changed
       //        && (a->modeC     != mm->modeC + 1)   // and Altitude not changed by +100 feet
@@ -1999,39 +1999,39 @@ struct aircraft *interactiveReceiveData(Ten90Frame *mm) {
   }
 
   // If a (new) SQUAWK has been received, copy it to the aircraft structure
-  if (mm->bFlags & MODES_ACFLAGS_SQUAWK_VALID) {
-    if (a->modeA != mm->modeA) {
+  if (mm->flags & MODES_ACFLAGS_SQUAWK_VALID) {
+    if (a->modeA != mm->mode_a) {
       a->modeAcount   = 0; // Squawk has changed, so zero the hit count
       a->modeACflags &= ~MODEAC_MSG_MODEA_HIT;
     }
-    a->modeA = mm->modeA;
+    a->modeA = mm->mode_a;
   }
 
   // If a (new) HEADING has been received, copy it to the aircraft structure
-  if (mm->bFlags & MODES_ACFLAGS_HEADING_VALID) {
+  if (mm->flags & MODES_ACFLAGS_HEADING_VALID) {
     a->track = mm->heading;
   }
 
   // If a (new) SPEED has been received, copy it to the aircraft structure
-  if (mm->bFlags & MODES_ACFLAGS_SPEED_VALID) {
+  if (mm->flags & MODES_ACFLAGS_SPEED_VALID) {
     a->speed = mm->velocity;
   }
 
   // If a (new) Vertical Descent rate has been received, copy it to the aircraft structure
-  if (mm->bFlags & MODES_ACFLAGS_VERTRATE_VALID) {
+  if (mm->flags & MODES_ACFLAGS_VERTRATE_VALID) {
     a->vert_rate = mm->vert_rate;
   }
 
   // if the Aircraft has landed or taken off since the last message, clear the even/odd CPR flags
-  if ((mm->bFlags & MODES_ACFLAGS_AOG_VALID) && ((a->bFlags ^ mm->bFlags) & MODES_ACFLAGS_AOG)) {
+  if ((mm->flags & MODES_ACFLAGS_AOG_VALID) && ((a->bFlags ^ mm->flags) & MODES_ACFLAGS_AOG)) {
     a->bFlags &= ~(MODES_ACFLAGS_LLBOTH_VALID | MODES_ACFLAGS_AOG);
 
-  } else  if (   (mm->bFlags & MODES_ACFLAGS_LLEITHER_VALID)
-                 && (((mm->bFlags | a->bFlags) & MODES_ACFLAGS_LLEITHER_VALID) == MODES_ACFLAGS_LLBOTH_VALID) ) {
+  } else  if (   (mm->flags & MODES_ACFLAGS_LLEITHER_VALID)
+                 && (((mm->flags | a->bFlags) & MODES_ACFLAGS_LLEITHER_VALID) == MODES_ACFLAGS_LLBOTH_VALID) ) {
     // If it's a new even/odd raw lat/lon, and we now have both even and odd,decode the CPR
     int fflag;
 
-    if (mm->bFlags & MODES_ACFLAGS_LLODD_VALID) {
+    if (mm->flags & MODES_ACFLAGS_LLODD_VALID) {
       fflag = 1;
       a->odd_cprlat  = mm->raw_latitude;
       a->odd_cprlon  = mm->raw_longitude;
@@ -2043,25 +2043,25 @@ struct aircraft *interactiveReceiveData(Ten90Frame *mm) {
       a->even_cprtime = mstime();
     }
     // Try relative CPR first
-    if (decodeCPRrelative(a, fflag, (mm->bFlags & MODES_ACFLAGS_AOG))) {
+    if (decodeCPRrelative(a, fflag, (mm->flags & MODES_ACFLAGS_AOG))) {
       // If it fails then try global if the two data are less than 10 seconds apart
       if (abs((int)(a->even_cprtime - a->odd_cprtime)) <= 10000) {
-        decodeCPR(a, fflag, (mm->bFlags & MODES_ACFLAGS_AOG));
+        decodeCPR(a, fflag, (mm->flags & MODES_ACFLAGS_AOG));
       }
     }
 
     //If we sucessfully decoded, back copy the results to mm so that we can print them in list output
     if (a->bFlags & MODES_ACFLAGS_LATLON_VALID) {
-      mm->bFlags |= MODES_ACFLAGS_LATLON_VALID;
-      mm->fLat    = a->lat;
-      mm->fLon    = a->lon;
+      mm->flags |= MODES_ACFLAGS_LATLON_VALID;
+      mm->decoded_lat    = a->lat;
+      mm->decoded_lon    = a->lon;
     }
   }
 
   // Update the aircrafts a->bFlags to reflect the newly received mm->bFlags;
-  a->bFlags |= mm->bFlags;
+  a->bFlags |= mm->flags;
 
-  if (mm->msgtype == 32) {
+  if (mm->msg_type == 32) {
     int flags = a->modeACflags;
     if ((flags & (MODEAC_MSG_MODEC_HIT | MODEAC_MSG_MODEC_OLD)) == MODEAC_MSG_MODEC_OLD) {
       //
@@ -2369,7 +2369,7 @@ void modesSendAllClients(int service, void *msg, int len) {
 /* Write raw output in Beast Binary format with Timestamp to TCP clients */
 void modesSendBeastOutput(Ten90Frame *mm) {
   char *p = &Modes.beastOut[Modes.beastOutUsed];
-  int  msgLen = mm->msgbits / 8;
+  int  msgLen = mm->msg_number_bits / 8;
   char * pTimeStamp;
   int  j;
 
@@ -2383,12 +2383,12 @@ void modesSendBeastOutput(Ten90Frame *mm) {
   else
     {return;}
 
-  pTimeStamp = (char *) &mm->timestampMsg;
+  pTimeStamp = (char *) &mm->msg_timestamp;
   for (j = 5; j >= 0; j--) {
     *p++ = pTimeStamp[j];
   }
 
-  *p++ = mm->signalLevel;
+  *p++ = mm->signal_level;
 
   memcpy(p, mm->msg, msgLen);
 
@@ -2404,13 +2404,13 @@ void modesSendBeastOutput(Ten90Frame *mm) {
 /* Write raw output to TCP clients. */
 void modesSendRawOutput(Ten90Frame *mm) {
   char *p = &Modes.rawOut[Modes.rawOutUsed];
-  int  msgLen = mm->msgbits / 8;
+  int  msgLen = mm->msg_number_bits / 8;
   int j;
   unsigned char * pTimeStamp;
 
-  if (Modes.mlat && mm->timestampMsg) {
+  if (Modes.mlat && mm->msg_timestamp) {
     *p++ = '@';
-    pTimeStamp = (unsigned char *) &mm->timestampMsg;
+    pTimeStamp = (unsigned char *) &mm->msg_timestamp;
     for (j = 5; j >= 0; j--) {
       sprintf(p, "%02X", pTimeStamp[j]);
       p += 2;
@@ -2452,31 +2452,31 @@ void modesSendSBSOutput(Ten90Frame *mm) {
   //
 
   // Decide on the basic SBS Message Type
-  if        ((mm->msgtype ==  4) || (mm->msgtype == 20)) {
+  if        ((mm->msg_type ==  4) || (mm->msg_type == 20)) {
     msgType = 5;
-  } else if ((mm->msgtype ==  5) || (mm->msgtype == 21)) {
+  } else if ((mm->msg_type ==  5) || (mm->msg_type == 21)) {
     msgType = 6;
-  } else if ((mm->msgtype ==  0) || (mm->msgtype == 16)) {
+  } else if ((mm->msg_type ==  0) || (mm->msg_type == 16)) {
     msgType = 7;
-  } else if  (mm->msgtype == 11) {
+  } else if  (mm->msg_type == 11) {
     msgType = 8;
-  } else if ((mm->msgtype != 17) && (mm->msgtype != 18)) {
+  } else if ((mm->msg_type != 17) && (mm->msg_type != 18)) {
     return;
-  } else if ((mm->metype >= 1) && (mm->metype <=  4)) {
+  } else if ((mm->es_type >= 1) && (mm->es_type <=  4)) {
     msgType = 1;
-  } else if ((mm->metype >= 5) && (mm->metype <=  8)) {
-    if (mm->bFlags & MODES_ACFLAGS_LATLON_VALID)
+  } else if ((mm->es_type >= 5) && (mm->es_type <=  8)) {
+    if (mm->flags & MODES_ACFLAGS_LATLON_VALID)
       {msgType = 2;}
     else
       {msgType = 7;}
-  } else if ((mm->metype >= 9) && (mm->metype <= 18)) {
-    if (mm->bFlags & MODES_ACFLAGS_LATLON_VALID)
+  } else if ((mm->es_type >= 9) && (mm->es_type <= 18)) {
+    if (mm->flags & MODES_ACFLAGS_LATLON_VALID)
       {msgType = 3;}
     else
       {msgType = 7;}
-  } else if (mm->metype !=  19) {
+  } else if (mm->es_type !=  19) {
     return;
-  } else if ((mm->mesub == 1) || (mm->mesub == 2)) {
+  } else if ((mm->es_subtype == 1) || (mm->es_subtype == 2)) {
     msgType = 4;
   } else {
     return;
@@ -2486,9 +2486,9 @@ void modesSendSBSOutput(Ten90Frame *mm) {
   p += sprintf(p, "MSG,%d,111,11111,%06X,111111,", msgType, mm->addr);
 
   // Fields 7 & 8 are the current time and date
-  if (mm->timestampMsg) {                                       // Make sure the records' timestamp is valid before outputing it
+  if (mm->msg_timestamp) {                                       // Make sure the records' timestamp is valid before outputing it
     epocTime = Modes.stSystemTimeBlk;                         // This is the time of the start of the Block we're processing
-    offset   = (int) (mm->timestampMsg - Modes.timestampBlk); // This is the time (in 12Mhz ticks) into the Block
+    offset   = (int) (mm->msg_timestamp - Modes.timestampBlk); // This is the time (in 12Mhz ticks) into the Block
     offset   = offset / 12000;                                // convert to milliseconds
     epocTime.millitm += offset;                               // add on the offset time to the Block start time
     if (epocTime.millitm > 999)                               // if we've caused an overflow into the next second...
@@ -2507,36 +2507,36 @@ void modesSendSBSOutput(Ten90Frame *mm) {
   p += sprintf(p, "%02d:%02d:%02d.%03d", stTime.tm_hour, stTime.tm_min, stTime.tm_sec, epocTime.millitm);
 
   // Field 11 is the callsign (if we have it)
-  if (mm->bFlags & MODES_ACFLAGS_CALLSIGN_VALID) {p += sprintf(p, ",%s", mm->flight);}
-  else                                           {p += sprintf(p, ",");}
+  if (mm->flags & MODES_ACFLAGS_CALLSIGN_VALID) {p += sprintf(p, ",%s", mm->flight);}
+  else                                          {p += sprintf(p, ",");}
 
   // Field 12 is the altitude (if we have it) - force to zero if we're on the ground
-  if ((mm->bFlags & MODES_ACFLAGS_AOG_GROUND) == MODES_ACFLAGS_AOG_GROUND) {
+  if ((mm->flags & MODES_ACFLAGS_AOG_GROUND) == MODES_ACFLAGS_AOG_GROUND) {
     p += sprintf(p, ",0");
-  } else if (mm->bFlags & MODES_ACFLAGS_ALTITUDE_VALID) {
+  } else if (mm->flags & MODES_ACFLAGS_ALTITUDE_VALID) {
     p += sprintf(p, ",%d", mm->altitude);
   } else {
     p += sprintf(p, ",");
   }
 
   // Field 13 and 14 are the ground Speed and Heading (if we have them)
-  if (mm->bFlags & MODES_ACFLAGS_NSEWSPD_VALID) {p += sprintf(p, ",%d,%d", mm->velocity, mm->heading);}
-  else                                          {p += sprintf(p, ",,");}
-
-  // Fields 15 and 16 are the Lat/Lon (if we have it)
-  if (mm->bFlags & MODES_ACFLAGS_LATLON_VALID) {p += sprintf(p, ",%1.5f,%1.5f", mm->fLat, mm->fLon);}
+  if (mm->flags & MODES_ACFLAGS_NSEWSPD_VALID) {p += sprintf(p, ",%d,%d", mm->velocity, mm->heading);}
   else                                         {p += sprintf(p, ",,");}
 
+  // Fields 15 and 16 are the Lat/Lon (if we have it)
+  if (mm->flags & MODES_ACFLAGS_LATLON_VALID) {p += sprintf(p, ",%1.5f,%1.5f", mm->decoded_lat, mm->decoded_lon);}
+  else                                        {p += sprintf(p, ",,");}
+
   // Field 17 is the VerticalRate (if we have it)
-  if (mm->bFlags & MODES_ACFLAGS_VERTRATE_VALID) {p += sprintf(p, ",%d", mm->vert_rate);}
+  if (mm->flags & MODES_ACFLAGS_VERTRATE_VALID) {p += sprintf(p, ",%d", mm->vert_rate);}
   else                                           {p += sprintf(p, ",");}
 
   // Field 18 is  the Squawk (if we have it)
-  if (mm->bFlags & MODES_ACFLAGS_SQUAWK_VALID) {p += sprintf(p, ",%x", mm->modeA);}
+  if (mm->flags & MODES_ACFLAGS_SQUAWK_VALID) {p += sprintf(p, ",%x", mm->mode_a);}
   else                                         {p += sprintf(p, ",");}
 
   // Field 19 is the Squawk Changing Alert flag (if we have it)
-  if (mm->bFlags & MODES_ACFLAGS_FS_VALID) {
+  if (mm->flags & MODES_ACFLAGS_FS_VALID) {
     if ((mm->fs >= 2) && (mm->fs <= 4)) {
       p += sprintf(p, ",-1");
     } else {
@@ -2547,8 +2547,8 @@ void modesSendSBSOutput(Ten90Frame *mm) {
   }
 
   // Field 20 is the Squawk Emergency flag (if we have it)
-  if (mm->bFlags & MODES_ACFLAGS_SQUAWK_VALID) {
-    if ((mm->modeA == 0x7500) || (mm->modeA == 0x7600) || (mm->modeA == 0x7700)) {
+  if (mm->flags & MODES_ACFLAGS_SQUAWK_VALID) {
+    if ((mm->mode_a == 0x7500) || (mm->mode_a == 0x7600) || (mm->mode_a == 0x7700)) {
       p += sprintf(p, ",-1");
     } else {
       p += sprintf(p, ",0");
@@ -2558,7 +2558,7 @@ void modesSendSBSOutput(Ten90Frame *mm) {
   }
 
   // Field 21 is the Squawk Ident flag (if we have it)
-  if (mm->bFlags & MODES_ACFLAGS_FS_VALID) {
+  if (mm->flags & MODES_ACFLAGS_FS_VALID) {
     if ((mm->fs >= 4) && (mm->fs <= 5)) {
       p += sprintf(p, ",-1");
     } else {
@@ -2569,8 +2569,8 @@ void modesSendSBSOutput(Ten90Frame *mm) {
   }
 
   // Field 22 is the OnTheGround flag (if we have it)
-  if (mm->bFlags & MODES_ACFLAGS_AOG_VALID) {
-    if (mm->bFlags & MODES_ACFLAGS_AOG) {
+  if (mm->flags & MODES_ACFLAGS_AOG_VALID) {
+    if (mm->flags & MODES_ACFLAGS_AOG) {
       p += sprintf(p, ",-1");
     } else {
       p += sprintf(p, ",0");
@@ -2618,7 +2618,7 @@ int decodeHexMessage(struct client *c, char *hex) {
   // don't try to pass them off as being received by this instance
   // when forwarding them
   mm.remote = 1;
-  mm.signalLevel = 0xFF;
+  mm.signal_level = 0xFF;
 
   // Remove spaces on the left and on the right
   while (l && isspace(hex[l-1])) {
@@ -2638,7 +2638,7 @@ int decodeHexMessage(struct client *c, char *hex) {
 
   switch(hex[0]) {
   case '<': {
-    mm.signalLevel = (hexDigitVal(hex[13]) << 4) | hexDigitVal(hex[14]);
+    mm.signal_level = (hexDigitVal(hex[13]) << 4) | hexDigitVal(hex[14]);
     // Skip <, timestamp and siglevel, and ;
     hex += 15; l -= 16;
     break;
@@ -2731,7 +2731,7 @@ int decodeBinMessage(struct client *c, char *p) {
 
   if (msgLen) {
     p += 7;                 // Skip the timestamp
-    mm.signalLevel = *p++;  // Grab the signal level
+    mm.signal_level = *p++;  // Grab the signal level
     memcpy(msg, p, msgLen); // and the data
 
     if (msgLen == MODEAC_MSG_BYTES) { // ModeA or ModeC
