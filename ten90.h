@@ -94,10 +94,10 @@ extern int kTen90UnitMeters;
 
 
 typedef struct {
-  uint32_t *icao_cache;  // Recently seen ICAO addresses cache
+  uint32_t *icao_cache;           // Recently seen ICAO addresses cache
   int icao_cache_size;
   int icao_cache_ttl;
-  int max_crc_fixes;     // Number of crc bit error(s) to correct
+  int max_crc_bit_corrections;  // Number of crc bit error(s) to correct
 } Ten90Context;
 
 
@@ -176,6 +176,14 @@ extern "C" {
   int Ten90FixSingleBitErrors(unsigned char *msg, int bits);
   int Ten90ModeAToModeC(unsigned int ModeA);
   void Ten90DisplayFrame(Ten90Frame *frame);
+  int Ten90DecodeCPRRelative(double reference_lat, double reference_lon,
+                             int odd, int surface, int cpr_lat, int cpr_lon,
+                             double *decoded_lat, double *decoded_lon);
+  int Ten90DecodeCpr(int even_cpr_lat, int even_cpr_lon,
+                     int odd_cpr_lat, int odd_cpr_lon,
+                     double receiver_lat, double receiver_lon,
+                     int odd, int surface,
+                     double *result_lat, double *result_lon);
 
 #ifdef __cplusplus
 }

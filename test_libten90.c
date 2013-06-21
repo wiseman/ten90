@@ -1,6 +1,66 @@
 #include "ten90.h"
 
 #include <assert.h>
+#include <math.h>
+
+
+typedef struct {
+  int lat;
+  int lon;
+} Cpr;
+
+typedef struct {
+  double lat;
+  double lon;
+} Pos;
+
+
+void AssertPos(Pos a, Pos b) {
+  assert(a.lat == b.lat);
+  assert(a.lon == b.lon);
+}
+
+
+void TestCprDecoding() {
+  {
+    Cpr even = {109227, 0};
+    Cpr odd = {9124, 65537};
+    Pos expected = {-84.99898619570973, -179.99908447265625};
+    Pos actual;
+    int error = Ten90DecodeCpr(
+        even.lat, even.lon, odd.lat, odd.lon,
+        0.0, 0.0,
+        1, 0,
+        &actual.lat, &actual.lon);
+    assert(!error);
+    AssertPos(expected, actual);
+  }
+  {
+    Cpr even = {43693, 16966};
+    Cpr odd = {27694, 114128};
+    Pos expected = {44.00108208090572, 93.17766462053571};
+    Pos actual;
+    int error = Ten90DecodeCpr(
+        even.lat, even.lon, odd.lat, odd.lon,
+        0.0, 0.0,
+        1, 0,
+        &actual.lat, &actual.lon);
+    assert(!error);
+    AssertPos(expected, actual);
+  }
+  {
+    // Crosses transition boundary.
+    Cpr even = {108148, 123838};
+    Cpr odd = {130397, 123848};
+    Pos actual;
+    int error = Ten90DecodeCpr(
+        even.lat, even.lon, odd.lat, odd.lon,
+        0.0, 0.0,
+        1, 0,
+        &actual.lat, &actual.lon);
+    assert(error);
+  }
+}
 
 
 int main(void) {
@@ -32,6 +92,8 @@ int main(void) {
     assert(mm.addr == 0x29400e);
     assert(mm.msg_type == 0);
   }
+
+  TestCprDecoding();
 
   Ten90ContextDestroy(&context);
   return 0;

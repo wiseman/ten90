@@ -324,7 +324,7 @@ void modesInit(void) {
 
   if (Ten90ContextInit(
           &Modes.ctx, kTen90DefaultIcaoCacheSize, kTen90DefaultIcaoCacheTtl)) {
-    Modes.ctx.max_crc_fixes = Modes.nfix_crc;
+    Modes.ctx.max_crc_bit_corrections = Modes.nfix_crc;
     fprintf(stderr, "Unable to initialize ten90.\n");
     exit(1);
   }
@@ -1700,87 +1700,6 @@ void interactiveUpdateAircraftModeS() {
   }
 }
 
-/* Always positive MOD operation, used for CPR decoding. */
-int cprModFunction(int a, int b) {
-  int res = a % b;
-  if (res < 0) res += b;
-  return res;
-}
-
-/* The NL function uses the precomputed table from 1090-WP-9-14 */
-int cprNLFunction(double lat) {
-  if (lat < 0) lat = -lat; /* Table is simmetric about the equator. */
-  if (lat < 10.47047130) return 59;
-  if (lat < 14.82817437) return 58;
-  if (lat < 18.18626357) return 57;
-  if (lat < 21.02939493) return 56;
-  if (lat < 23.54504487) return 55;
-  if (lat < 25.82924707) return 54;
-  if (lat < 27.93898710) return 53;
-  if (lat < 29.91135686) return 52;
-  if (lat < 31.77209708) return 51;
-  if (lat < 33.53993436) return 50;
-  if (lat < 35.22899598) return 49;
-  if (lat < 36.85025108) return 48;
-  if (lat < 38.41241892) return 47;
-  if (lat < 39.92256684) return 46;
-  if (lat < 41.38651832) return 45;
-  if (lat < 42.80914012) return 44;
-  if (lat < 44.19454951) return 43;
-  if (lat < 45.54626723) return 42;
-  if (lat < 46.86733252) return 41;
-  if (lat < 48.16039128) return 40;
-  if (lat < 49.42776439) return 39;
-  if (lat < 50.67150166) return 38;
-  if (lat < 51.89342469) return 37;
-  if (lat < 53.09516153) return 36;
-  if (lat < 54.27817472) return 35;
-  if (lat < 55.44378444) return 34;
-  if (lat < 56.59318756) return 33;
-  if (lat < 57.72747354) return 32;
-  if (lat < 58.84763776) return 31;
-  if (lat < 59.95459277) return 30;
-  if (lat < 61.04917774) return 29;
-  if (lat < 62.13216659) return 28;
-  if (lat < 63.20427479) return 27;
-  if (lat < 64.26616523) return 26;
-  if (lat < 65.31845310) return 25;
-  if (lat < 66.36171008) return 24;
-  if (lat < 67.39646774) return 23;
-  if (lat < 68.42322022) return 22;
-  if (lat < 69.44242631) return 21;
-  if (lat < 70.45451075) return 20;
-  if (lat < 71.45986473) return 19;
-  if (lat < 72.45884545) return 18;
-  if (lat < 73.45177442) return 17;
-  if (lat < 74.43893416) return 16;
-  if (lat < 75.42056257) return 15;
-  if (lat < 76.39684391) return 14;
-  if (lat < 77.36789461) return 13;
-  if (lat < 78.33374083) return 12;
-  if (lat < 79.29428225) return 11;
-  if (lat < 80.24923213) return 10;
-  if (lat < 81.19801349) return 9;
-  if (lat < 82.13956981) return 8;
-  if (lat < 83.07199445) return 7;
-  if (lat < 83.99173563) return 6;
-  if (lat < 84.89166191) return 5;
-  if (lat < 85.75541621) return 4;
-  if (lat < 86.53536998) return 3;
-  if (lat < 87.00000000) return 2;
-  else return 1;
-}
-
-int cprNFunction(double lat, int fflag) {
-  int nl = cprNLFunction(lat) - (fflag ? 1 : 0);
-  if (nl < 1) nl = 1;
-  return nl;
-}
-
-double cprDlonFunction(double lat, int fflag, int surface) {
-  return (surface ? 90.0 : 360.0) / cprNFunction(lat, fflag);
-}
-
 /* This algorithm comes from:
  * http://www.lll.lu/~edward/edward/adsb/DecodingADSBposition.html.
  *
@@ -1791,130 +1710,67 @@ double cprDlonFunction(double lat, int fflag, int surface) {
  *    seconds.
  */
 void decodeCPR(struct aircraft *a, int fflag, int surface) {
-  double AirDlat0 = (surface ? 90.0 : 360.0) / 60.0;
-  double AirDlat1 = (surface ? 90.0 : 360.0) / 59.0;
-  double lat0 = a->even_cprlat;
-  double lat1 = a->odd_cprlat;
-  double lon0 = a->even_cprlon;
-  double lon1 = a->odd_cprlon;
-
-  // Compute the Latitude Index "j"
-  int    j     = (int) floor(((59*lat0 - 60*lat1) / 131072) + 0.5);
-  double rlat0 = AirDlat0 * (cprModFunction(j,60) + lat0 / 131072);
-  double rlat1 = AirDlat1 * (cprModFunction(j,59) + lat1 / 131072);
-
-  if (surface) {
-    // If we're on the ground, make sure we have our receiver base station Lat/Lon
-    if (0 == (Modes.bUserFlags & MODES_USER_LATLON_VALID))
-    {return;}
-    rlat0 += floor(Modes.fUserLat / 90.0) * 90.0;  // Move from 1st quadrant to our quadrant
-    rlat1 += floor(Modes.fUserLat / 90.0) * 90.0;
-  } else {
-    if (rlat0 >= 270) rlat0 -= 360;
-    if (rlat1 >= 270) rlat1 -= 360;
+  if (!surface || (Modes.bUserFlags & MODES_USER_LATLON_VALID)) {
+    int error = Ten90DecodeCpr(
+        a->even_cprlat, a->even_cprlon,
+        a->odd_cprlat, a->odd_cprlon,
+        Modes.fUserLat, Modes.fUserLon,
+        fflag, surface,
+        &a->lat, &a->lon);
+    if (!error) {
+      a->seenLatLon      = a->seen;
+      a->timestampLatLon = a->timestamp;
+      a->bFlags         |= (MODES_ACFLAGS_LATLON_VALID | MODES_ACFLAGS_LATLON_REL_OK);
+    }
   }
-
-  // Check that both are in the same latitude zone, or abort.
-  if (cprNLFunction(rlat0) != cprNLFunction(rlat1)) return;
-
-  // Compute ni and the Longitude Index "m"
-  if (fflag) { // Use odd packet.
-    int ni = cprNFunction(rlat1,1);
-    int m = (int) floor((((lon0 * (cprNLFunction(rlat1)-1)) -
-                          (lon1 * cprNLFunction(rlat1))) / 131072.0) + 0.5);
-    a->lon = cprDlonFunction(rlat1, 1, surface) * (cprModFunction(m, ni)+lon1/131072);
-    a->lat = rlat1;
-  } else {     // Use even packet.
-    int ni = cprNFunction(rlat0,0);
-    int m = (int) floor((((lon0 * (cprNLFunction(rlat0)-1)) -
-                          (lon1 * cprNLFunction(rlat0))) / 131072) + 0.5);
-    a->lon = cprDlonFunction(rlat0, 0, surface) * (cprModFunction(m, ni)+lon0/131072);
-    a->lat = rlat0;
-  }
-
-  if (surface) {
-    a->lon += floor(Modes.fUserLon / 90.0) * 90.0;  // Move from 1st quadrant to our quadrant
-  } else if (a->lon > 180) {
-    a->lon -= 360;
-  }
-
-  a->seenLatLon      = a->seen;
-  a->timestampLatLon = a->timestamp;
-  a->bFlags         |= (MODES_ACFLAGS_LATLON_VALID | MODES_ACFLAGS_LATLON_REL_OK);
 }
 
-/* This algorithm comes from:
- * 1090-WP29-07-Draft_CPR101 (which also defines decodeCPR() )
- *
- * There is an error in this document related to CPR relative decode.
- * Should use trunc() rather than the floor() function in Eq 38 and related for deltaZI.
- * floor() returns integer less than argument
- * trunc() returns integer closer to zero than argument.
- * Note:   text of document describes trunc() functionality for deltaZI calculation
- *         but the formulae use floor().
- */
-int decodeCPRrelative(struct aircraft *a, int fflag, int surface) {
-  double AirDlat;
-  double AirDlon;
-  double lat;
-  double lon;
-  double lonr, latr;
-  double rlon, rlat;
-  int j,m;
 
-  if (a->bFlags & MODES_ACFLAGS_LATLON_REL_OK) { // Ok to try aircraft relative first
-    latr = a->lat;
-    lonr = a->lon;
-  } else if (Modes.bUserFlags & MODES_USER_LATLON_VALID) { // Try ground station relative next
-    latr = Modes.fUserLat;
-    lonr = Modes.fUserLon;
+// Try to decode relative CPR using just an odd or just an even frame.
+
+int decodeCPRrelative(struct aircraft *a, int fflag, int surface) {
+  double reference_lat, reference_lon;
+  double rlon, rlat;
+  int lat, lon;
+
+  if (a->bFlags & MODES_ACFLAGS_LATLON_REL_OK) {
+    // Ok to try aircraft relative first
+    reference_lat = a->lat;
+    reference_lon = a->lon;
+  } else if (Modes.bUserFlags & MODES_USER_LATLON_VALID) {
+    // Try ground station relative next
+    reference_lat = Modes.fUserLat;
+    reference_lon = Modes.fUserLon;
   } else {
-    return (-1); // Exit with error - can't do relative if we don't have ref.
+    // Exit with error - can't do relative if we don't have ref.
+    return -1;
   }
 
-  if (fflag) { // odd
-    AirDlat = (surface ? 90.0 : 360.0) / 59.0;
+  if (fflag) {
+    // Odd.
     lat = a->odd_cprlat;
     lon = a->odd_cprlon;
-  } else {    // even
-    AirDlat = (surface ? 90.0 : 360.0) / 60.0;
+  } else {
+    // Even.
     lat = a->even_cprlat;
     lon = a->even_cprlon;
   }
 
-  // Compute the Latitude Index "j"
-  j = (int) (floor(latr/AirDlat) +
-             trunc(0.5 + cprModFunction((int)latr, (int)AirDlat)/AirDlat - lat/131072));
-  rlat = AirDlat * (j + lat/131072);
-  if (rlat >= 270) rlat -= 360;
-
-  // Check to see that answer is reasonable - ie no more than 1/2 cell away
-  if (fabs(rlat - a->lat) > (AirDlat/2)) {
-    a->bFlags &= ~MODES_ACFLAGS_LATLON_REL_OK; // This will cause a quick exit next time if no global has been done
-    return (-1);                               // Time to give up - Latitude error
+  if (Ten90DecodeCPRRelative(
+          reference_lat, reference_lon,
+          fflag, surface, lat, lon,
+          &a->lat, &a->lon)) {
+    // This will cause a quick exit next time if no global has been done
+    a->bFlags &= ~MODES_ACFLAGS_LATLON_REL_OK;
+    // Give up--couldn't get a relative fix.
+    return -1;
   }
-
-  // Compute the Longitude Index "m"
-  AirDlon = cprDlonFunction(rlat, fflag, surface);
-  m = (int) (floor(lonr/AirDlon) +
-             trunc(0.5 + cprModFunction((int)lonr, (int)AirDlon)/AirDlon - lon/131072));
-  rlon = AirDlon * (m + lon/131072);
-  if (rlon > 180) rlon -= 360;
-
-  // Check to see that answer is reasonable - ie no more than 1/2 cell away
-  if (fabs(rlon - a->lon) > (AirDlon/2)) {
-    a->bFlags &= ~MODES_ACFLAGS_LATLON_REL_OK; // This will cause a quick exit next time if no global has been done
-    return (-1);                               // Time to give up - Longitude error
-  }
-
-  a->lat = rlat;
-  a->lon = rlon;
-
   a->seenLatLon      = a->seen;
   a->timestampLatLon = a->timestamp;
   a->bFlags         |= (MODES_ACFLAGS_LATLON_VALID | MODES_ACFLAGS_LATLON_REL_OK);
-  return (0);
+  return 0;
 }
+
 
 /* Receive new messages and populate the interactive mode with more info. */
 struct aircraft *interactiveReceiveData(Ten90Frame *mm) {

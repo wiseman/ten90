@@ -71,7 +71,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
   frame->msg_number_bits = Ten90ModeSMessageLenByType(frame->msg_type);
   frame->crc = Ten90ModeSChecksum(bytes, frame->msg_number_bits);
 
-  if ((frame->crc) && (context->max_crc_fixes) &&
+  if ((frame->crc) && (context->max_crc_bit_corrections) &&
       ((frame->msg_type == 17) || (frame->msg_type == 18))) {
     //  if ((frame->crc) && (Modes.nfix_crc) && ((frame->msg_type == 11) ||
     //  (frame->msg_type == 17))) {
@@ -87,7 +87,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
     // against known aircraft, and check IID against known good
     // IID's. That's a TODO.
     frame->number_corrected_bits = Ten90FixBitErrors(
-        bytes, frame->msg_number_bits, context->max_crc_fixes,
+        bytes, frame->msg_number_bits, context->max_crc_bit_corrections,
         frame->corrected);
 
     // If we correct, validate ICAO addr to help filter birthday
@@ -354,9 +354,9 @@ int Ten90DecodeFrame(unsigned char *bytes,
       frame->flight[4] = ais_charset[chars & 0x3F];
 
       frame->flight[8] = '\0';
-    } else {
     }
   }
+  return frame->msg_number_bits / 8;
 }
 
 
@@ -1236,6 +1236,227 @@ int Ten90ContextInit(Ten90Context *context, int icao_cache_size,
   return 0;
 }
 
+
 void Ten90ContextDestroy(Ten90Context *context) {
   free(context->icao_cache);
+}
+
+
+// Always positive MOD operation, used for CPR decoding.
+
+int Ten90CprMod(int a, int b) {
+  int res = a % b;
+  if (res < 0) {
+    res += b;
+  }
+  return res;
+}
+
+
+// The NL function uses the precomputed table from 1090-WP-9-14.
+
+int Ten90CprNl(double lat) {
+  if (lat < 0) lat = -lat;  // Table is symmetric about the equator.
+  if (lat < 10.47047130) return 59;
+  if (lat < 14.82817437) return 58;
+  if (lat < 18.18626357) return 57;
+  if (lat < 21.02939493) return 56;
+  if (lat < 23.54504487) return 55;
+  if (lat < 25.82924707) return 54;
+  if (lat < 27.93898710) return 53;
+  if (lat < 29.91135686) return 52;
+  if (lat < 31.77209708) return 51;
+  if (lat < 33.53993436) return 50;
+  if (lat < 35.22899598) return 49;
+  if (lat < 36.85025108) return 48;
+  if (lat < 38.41241892) return 47;
+  if (lat < 39.92256684) return 46;
+  if (lat < 41.38651832) return 45;
+  if (lat < 42.80914012) return 44;
+  if (lat < 44.19454951) return 43;
+  if (lat < 45.54626723) return 42;
+  if (lat < 46.86733252) return 41;
+  if (lat < 48.16039128) return 40;
+  if (lat < 49.42776439) return 39;
+  if (lat < 50.67150166) return 38;
+  if (lat < 51.89342469) return 37;
+  if (lat < 53.09516153) return 36;
+  if (lat < 54.27817472) return 35;
+  if (lat < 55.44378444) return 34;
+  if (lat < 56.59318756) return 33;
+  if (lat < 57.72747354) return 32;
+  if (lat < 58.84763776) return 31;
+  if (lat < 59.95459277) return 30;
+  if (lat < 61.04917774) return 29;
+  if (lat < 62.13216659) return 28;
+  if (lat < 63.20427479) return 27;
+  if (lat < 64.26616523) return 26;
+  if (lat < 65.31845310) return 25;
+  if (lat < 66.36171008) return 24;
+  if (lat < 67.39646774) return 23;
+  if (lat < 68.42322022) return 22;
+  if (lat < 69.44242631) return 21;
+  if (lat < 70.45451075) return 20;
+  if (lat < 71.45986473) return 19;
+  if (lat < 72.45884545) return 18;
+  if (lat < 73.45177442) return 17;
+  if (lat < 74.43893416) return 16;
+  if (lat < 75.42056257) return 15;
+  if (lat < 76.39684391) return 14;
+  if (lat < 77.36789461) return 13;
+  if (lat < 78.33374083) return 12;
+  if (lat < 79.29428225) return 11;
+  if (lat < 80.24923213) return 10;
+  if (lat < 81.19801349) return 9;
+  if (lat < 82.13956981) return 8;
+  if (lat < 83.07199445) return 7;
+  if (lat < 83.99173563) return 6;
+  if (lat < 84.89166191) return 5;
+  if (lat < 85.75541621) return 4;
+  if (lat < 86.53536998) return 3;
+  if (lat < 87.00000000) return 2;
+  else return 1;
+}
+
+
+int Ten90CprN(double lat, int fflag) {
+  int nl = Ten90CprNl(lat) - (fflag ? 1 : 0);
+  if (nl < 1) nl = 1;
+  return nl;
+}
+
+
+double Ten90CprDlon(double lat, int fflag, int surface) {
+  return (surface ? 90.0 : 360.0) / Ten90CprN(lat, fflag);
+}
+
+
+// This algorithm comes from:
+// http://www.lll.lu/~edward/edward/adsb/DecodingADSBposition.html.
+//
+// A few remarks:
+//
+// 1) 131072 is 2^17 since CPR latitude and longitude are encoded in
+//    17 bits.
+//
+// 2) We assume that we always received the odd packet as last packet
+//    for simplicity. This may provide a position that is less fresh
+//    of a few seconds.
+
+int Ten90DecodeCpr(int even_cpr_lat, int even_cpr_lon,
+                   int odd_cpr_lat, int odd_cpr_lon,
+                   double receiver_lat, double receiver_lon,
+                   int odd, int surface,
+                   double *result_lat, double *result_lon) {
+  double AirDlat0 = (surface ? 90.0 : 360.0) / 60.0;
+  double AirDlat1 = (surface ? 90.0 : 360.0) / 59.0;
+  double lat0 = even_cpr_lat;
+  double lat1 = odd_cpr_lat;
+  double lon0 = even_cpr_lon;
+  double lon1 = odd_cpr_lon;
+
+  // Compute the Latitude Index "j".
+  int    j     = (int) floor(((59 * lat0 - 60 * lat1) / 131072) + 0.5);
+  double rlat0 = AirDlat0 * (Ten90CprMod(j, 60) + lat0 / 131072);
+  double rlat1 = AirDlat1 * (Ten90CprMod(j, 59) + lat1 / 131072);
+
+  if (surface) {
+    // Move from 1st quadrant to our quadrant
+    rlat0 += floor(receiver_lat / 90.0) * 90.0;
+    rlat1 += floor(receiver_lat / 90.0) * 90.0;
+  } else {
+    if (rlat0 >= 270) rlat0 -= 360;
+    if (rlat1 >= 270) rlat1 -= 360;
+  }
+
+  // Check that both are in the same latitude zone, or abort.
+  if (Ten90CprNl(rlat0) != Ten90CprNl(rlat1)) {
+    return -1;
+  }
+
+  // Compute ni and the Longitude Index "m"
+  if (odd) {
+    // Use odd packet.
+    int ni = Ten90CprN(rlat1, 1);
+    int m = (int) floor((((lon0 * (Ten90CprNl(rlat1) - 1)) -
+                          (lon1 * Ten90CprNl(rlat1))) / 131072.0) + 0.5);
+    *result_lon = Ten90CprDlon(rlat1, 1, surface) * (Ten90CprMod(m, ni) + lon1 / 131072);
+    *result_lat = rlat1;
+  } else {
+    // Use even packet.
+    int ni = Ten90CprN(rlat0,0);
+    int m = (int) floor((((lon0 * (Ten90CprNl(rlat0) - 1)) -
+                          (lon1 * Ten90CprNl(rlat0))) / 131072) + 0.5);
+    *result_lon = Ten90CprDlon(rlat0, 0, surface) * (Ten90CprMod(m, ni) + lon0 / 131072);
+    *result_lat = rlat0;
+  }
+
+  if (surface) {
+    // Move from 1st quadrant to our quadrant
+    *result_lon += floor(receiver_lon / 90.0) * 90.0;
+  } else if (*result_lon > 180) {
+    *result_lon -= 360;
+  }
+  return 0;
+}
+
+
+int Ten90DecodeCPRRelative(double reference_lat, double reference_lon, int odd,
+                           int surface, int cpr_lat, int cpr_lon,
+                           double *decoded_lat, double *decoded_lon) {
+  double AirDlat;
+  double AirDlon;
+  double lat;
+  double lon;
+  double rlon, rlat;
+  int j,m;
+
+  if (odd) {
+    AirDlat = (surface ? 90.0 : 360.0) / 59.0;
+    lat = cpr_lat;
+    lon = cpr_lon;
+  } else {
+    AirDlat = (surface ? 90.0 : 360.0) / 60.0;
+    lat = cpr_lat;
+    lon = cpr_lon;
+  }
+
+  // Compute the Latitude Index "j"
+  j = (int) (floor(reference_lat / AirDlat) +
+             trunc(0.5 + Ten90CprMod(
+                 (int)reference_lat, (int)AirDlat) / AirDlat - lat / 131072));
+  rlat = AirDlat * (j + lat / 131072);
+  if (rlat >= 270) {
+    rlat -= 360;
+  }
+
+  // Check to see that answer is reasonable - ie no more than 1/2 cell
+  // away.
+  if (fabs(rlat - reference_lat) > (AirDlat / 2)) {
+    // Time to give up - Latitude error.
+    return -1;
+  }
+
+  // Compute the Longitude Index "m"
+  AirDlon = Ten90CprDlon(rlat, odd, surface);
+  m = (int) (floor(reference_lon / AirDlon) +
+             trunc(0.5 +
+                   Ten90CprMod(
+                       (int)reference_lon,
+                       (int)AirDlon) / AirDlon - lon / 131072));
+  rlon = AirDlon * (m + lon / 131072);
+  if (rlon > 180) {
+    rlon -= 360;
+  }
+
+  // Check to see that answer is reasonable - ie no more than 1/2 cell
+  // away.
+  if (fabs(rlon - reference_lon) > (AirDlon / 2)) {
+    // Time to give up - Longitude error.
+    return -1;
+  }
+
+  *decoded_lat = rlat;
+  *decoded_lon = rlon;
+  return 0;
 }
