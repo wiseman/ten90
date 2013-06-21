@@ -45,6 +45,22 @@ int kTen90DefaultIcaoCacheTtl = 60;
 int kTen90UnitFeet = 0;
 int kTen90UnitMeters = 1;
 
+int kTen90FlagsLatLonValid =                  1 << 0;
+int kTen90FlagsAltitudeValid =                1 << 1;
+int kTen90FlagsHeadingValid =                 1 << 2;
+int kTen90FlagsSpeedValid =                   1 << 3;
+int kTen90FlagsVerticalRateValid =            1 << 4;
+int kTen90FlagsSquawkValid =                  1 << 5;
+int kTen90FlagsCallsignValid =                1 << 6;
+int kTen90FlagsEastWestSpeedValid =           1 << 7;
+int kTen90FlagsNorthSouthSpeedValid =         1 << 8;
+int kTen90FlagsAircraftOnGround =             1 << 9;
+int kTen90FlagsCprEvenValid =                 1 << 10;
+int kTen90FlagsCprOddValid =                  1 << 11;
+int kTen90FlagsAircraftOnGroundValid =        1 << 12;
+int kTen90FlagsFlightStatusValid =            1 << 13;
+int kTen90FlagsNorthSouthEastWestSpeedValid = 1 << 14;
+
 
 // Returns the library version.  See http://semver.org/
 
@@ -145,18 +161,20 @@ int Ten90DecodeFrame(unsigned char *bytes,
   // Fields for DF0, DF16
   if (frame->msg_type == 0  || frame->msg_type == 16) {
     if (bytes[0] & 0x04) {                       // VS Bit
-      frame->flags |= MODES_ACFLAGS_AOG_VALID | MODES_ACFLAGS_AOG;
+      frame->flags |= (kTen90FlagsAircraftOnGroundValid |
+                       kTen90FlagsAircraftOnGround);
     } else {
-      frame->flags |= MODES_ACFLAGS_AOG_VALID;
+      frame->flags |= kTen90FlagsAircraftOnGroundValid;
     }
   }
 
   // Fields for DF11, DF17
   if (frame->msg_type == 11 || frame->msg_type == 17) {
     if (frame->ca == 4) {
-      frame->flags |= MODES_ACFLAGS_AOG_VALID | MODES_ACFLAGS_AOG;
+      frame->flags |= (kTen90FlagsAircraftOnGroundValid |
+                       kTen90FlagsAircraftOnGround);
     } else if (frame->ca == 5) {
-      frame->flags |= MODES_ACFLAGS_AOG_VALID;
+      frame->flags |= kTen90FlagsAircraftOnGroundValid;
     }
   }
 
@@ -164,7 +182,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
   if (frame->msg_type == 5  || frame->msg_type == 21) {
     int ID13Field = ((bytes[2] << 8) | bytes[3]) & 0x1FFF;
     if (ID13Field) {
-      frame->flags |= MODES_ACFLAGS_SQUAWK_VALID;
+      frame->flags |= kTen90FlagsSquawkValid;
       frame->mode_a = Ten90DecodeId13Field(ID13Field);
     }
   }
@@ -176,7 +194,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
     if (AC13Field) {
       // Only attempt to decode if a valid (non zero) altitude is
       // present
-      frame->flags |= MODES_ACFLAGS_ALTITUDE_VALID;
+      frame->flags |= kTen90FlagsAltitudeValid;
       frame->altitude = Ten90DecodeAc13Field(AC13Field, &frame->unit);
     }
   }
@@ -184,12 +202,13 @@ int Ten90DecodeFrame(unsigned char *bytes,
   // Fields for DF4, DF5, DF20, DF21
   if ((frame->msg_type == 4) || (frame->msg_type == 20) ||
       (frame->msg_type == 5) || (frame->msg_type == 21)) {
-    frame->flags |= MODES_ACFLAGS_FS_VALID;
+    frame->flags |= kTen90FlagsFlightStatusValid;
     frame->fs = bytes[0] & 7;               // Flight status for DF4,5,20,21
     if (frame->fs <= 3) {
-      frame->flags |= MODES_ACFLAGS_AOG_VALID;
-      if (frame->fs & 1)
-      {frame->flags |= MODES_ACFLAGS_AOG;}
+      frame->flags |= kTen90FlagsAircraftOnGroundValid;
+      if (frame->fs & 1) {
+        frame->flags |= kTen90FlagsAircraftOnGround;
+      }
     }
   }
 
@@ -206,7 +225,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
     if (es_type >= 1 && es_type <= 4) {
       // Aircraft Identification and Category
       uint32_t chars;
-      frame->flags |= MODES_ACFLAGS_CALLSIGN_VALID;
+      frame->flags |= kTen90FlagsCallsignValid;
 
       chars = (bytes[5] << 16) | (bytes[6] << 8) | (bytes[7]);
       frame->flight[3] = ais_charset[chars & 0x3F]; chars = chars >> 6;
@@ -228,28 +247,29 @@ int Ten90DecodeFrame(unsigned char *bytes,
                               (bytes[8] >> 1));
       frame->raw_longitude = (((bytes[8] & 1) << 16) | (bytes[9] << 8) |
                               (bytes[10]));
-      frame->flags |= (frame->msg[6] & 0x04) ? MODES_ACFLAGS_LLODD_VALID
-                      : MODES_ACFLAGS_LLEVEN_VALID;
+      frame->flags |= (frame->msg[6] & 0x04) ? kTen90FlagsCprOddValid
+                      : kTen90FlagsCprEvenValid;
       if (es_type >= 9) {
         // Airborne
         int AC12Field = ((bytes[5] << 4) | (bytes[6] >> 4)) & 0x0FFF;
-        frame->flags |= MODES_ACFLAGS_AOG_VALID;
+        frame->flags |= kTen90FlagsAircraftOnGroundValid;
         if (AC12Field) {
           // Only attempt to decode if a valid (non zero) altitude is present
-          frame->flags |= MODES_ACFLAGS_ALTITUDE_VALID;
+          frame->flags |= kTen90FlagsAltitudeValid;
           frame->altitude = Ten90DecodeAc12Field(AC12Field, &frame->unit);
         }
       } else {
         // Ground
         int movement = ((bytes[4] << 4) | (bytes[5] >> 4)) & 0x007F;
-        frame->flags |= MODES_ACFLAGS_AOG_VALID | MODES_ACFLAGS_AOG;
+        frame->flags |= (kTen90FlagsAircraftOnGroundValid |
+                         kTen90FlagsAircraftOnGround);
         if ((movement) && (movement < 125)) {
-          frame->flags |= MODES_ACFLAGS_SPEED_VALID;
+          frame->flags |= kTen90FlagsSpeedValid;
           frame->velocity = Ten90DecodeMovementField(movement);
         }
 
         if (bytes[5] & 0x08) {
-          frame->flags |= MODES_ACFLAGS_HEADING_VALID;
+          frame->flags |= kTen90FlagsHeadingValid;
           frame->heading = (((((bytes[5] << 4) |
                                (bytes[6] >> 4)) & 0x007F) * 45) >> 4);
         }
@@ -258,7 +278,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
     } else if (es_type == 19) {
       // Airborne Velocity Message.  Presumably airborne if we get an
       // Airborne Velocity Message
-      frame->flags |= MODES_ACFLAGS_AOG_VALID;
+      frame->flags |= kTen90FlagsAircraftOnGroundValid;
 
       if ( (es_subtype >= 1) && (es_subtype <= 4) ) {
         int vert_rate = ((bytes[8] & 0x07) << 6) | (bytes[9] >> 2);
@@ -268,7 +288,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
             vert_rate = 0 - vert_rate;
           }
           frame->vert_rate =  vert_rate * 64;
-          frame->flags |= MODES_ACFLAGS_VERTRATE_VALID;
+          frame->flags |= kTen90FlagsVerticalRateValid;
         }
       }
 
@@ -286,7 +306,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
 
         if (ew_raw) {
           // Do East/West
-          frame->flags |= MODES_ACFLAGS_EWSPEED_VALID;
+          frame->flags |= kTen90FlagsEastWestSpeedValid;
           if (bytes[5] & 0x04)
           {ew_vel = 0 - ew_vel;}
           frame->ew_velocity = ew_vel;
@@ -294,7 +314,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
 
         if (ns_raw) {
           // Do North/South
-          frame->flags |= MODES_ACFLAGS_NSSPEED_VALID;
+          frame->flags |= kTen90FlagsNorthSouthSpeedValid;
           if (bytes[7] & 0x80)
           {ns_vel = 0 - ns_vel;}
           frame->ns_velocity = ns_vel;
@@ -302,9 +322,9 @@ int Ten90DecodeFrame(unsigned char *bytes,
 
         if (ew_raw && ns_raw) {
           // Compute velocity and angle from the two speed components
-          frame->flags |= (MODES_ACFLAGS_SPEED_VALID |
-                           MODES_ACFLAGS_HEADING_VALID |
-                           MODES_ACFLAGS_NSEWSPD_VALID);
+          frame->flags |= (kTen90FlagsSpeedValid |
+                           kTen90FlagsHeadingValid |
+                           kTen90FlagsNorthSouthEastWestSpeedValid);
           frame->velocity = (int) sqrt((ns_vel * ns_vel) + (ew_vel * ew_vel));
           if (frame->velocity) {
             frame->heading = (int) (atan2(ew_vel, ns_vel) * 180.0 / M_PI);
@@ -315,7 +335,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
       } else if (es_subtype == 3 || es_subtype == 4) {
         int airspeed = ((bytes[7] & 0x7f) << 3) | (bytes[8] >> 5);
         if (airspeed) {
-          frame->flags |= MODES_ACFLAGS_SPEED_VALID;
+          frame->flags |= kTen90FlagsSpeedValid;
           --airspeed;
           if (es_subtype == 4) {
             // If (supersonic) unit is 4 kts
@@ -325,7 +345,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
         }
 
         if (bytes[5] & 0x04) {
-          frame->flags |= MODES_ACFLAGS_HEADING_VALID;
+          frame->flags |= kTen90FlagsHeadingValid;
           frame->heading = ((((bytes[5] & 0x03) << 8) | bytes[6]) * 45) >> 7;
         }
       }
@@ -337,7 +357,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
     if (bytes[4] == 0x20) {
       // Aircraft Identification
       uint32_t chars;
-      frame->flags |= MODES_ACFLAGS_CALLSIGN_VALID;
+      frame->flags |= kTen90FlagsCallsignValid;
       chars = (bytes[5] << 16) | (bytes[6] << 8) | (bytes[7]);
       frame->flight[3] = ais_charset[chars & 0x3F]; chars = chars >> 6;
       frame->flight[2] = ais_charset[chars & 0x3F]; chars = chars >> 6;
@@ -373,7 +393,7 @@ void Ten90DecodeModeAFrame(Ten90Frame *frame, int mode_a) {
 
   // Set the Identity field to Mode A.
   frame->mode_a   = mode_a & 0x7777;
-  frame->flags |= MODES_ACFLAGS_SQUAWK_VALID;
+  frame->flags |= kTen90FlagsSquawkValid;
 
   // Flag ident in flight status.
   frame->fs = mode_a & 0x0080;
@@ -944,8 +964,8 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
   printf(";\n");
 
   /* if (Modes.raw) { */
-  /*     fflush(stdout); // Provide data to the reader ASAP */
-  /*     return;         // Enough for --raw mode */
+  /*     fflush(stdout);  // Provide data to the reader ASAP */
+  /*     return;          // Enough for --raw mode */
   /* } */
 
   if (frame->msg_type < 32)
@@ -1037,7 +1057,7 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
       printf("    F flag   : %s\n", (frame->msg[6] & 0x04) ? "odd" : "even");
       printf("    T flag   : %s\n", (frame->msg[6] & 0x08) ? "UTC" : "non-UTC");
       printf("    Altitude : %d feet\n", frame->altitude);
-      if (frame->flags & MODES_ACFLAGS_LATLON_VALID) {
+      if (frame->flags & kTen90FlagsLatLonValid) {
         printf("    Latitude : %f\n", frame->decoded_lat);
         printf("    Longitude: %f\n", frame->decoded_lon);
       } else {
@@ -1049,30 +1069,30 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
       // Airborne Velocity
       if (frame->es_subtype == 1 || frame->es_subtype == 2) {
         printf("    EW status         : %s\n",
-               (frame->flags & MODES_ACFLAGS_EWSPEED_VALID) ?
+               (frame->flags & kTen90FlagsEastWestSpeedValid) ?
                "Valid" : "Unavailable");
         printf("    EW velocity       : %d\n", frame->ew_velocity);
         printf("    NS status         : %s\n",
-               (frame->flags & MODES_ACFLAGS_NSSPEED_VALID) ?
+               (frame->flags & kTen90FlagsNorthSouthSpeedValid) ?
                "Valid" : "Unavailable");
         printf("    NS velocity       : %d\n", frame->ns_velocity);
         printf("    Vertical status   : %s\n",
-               (frame->flags & MODES_ACFLAGS_VERTRATE_VALID) ?
+               (frame->flags & kTen90FlagsVerticalRateValid) ?
                "Valid" : "Unavailable");
         printf("    Vertical rate src : %d\n", ((frame->msg[8] >> 4) & 1));
         printf("    Vertical rate     : %d\n", frame->vert_rate);
 
       } else if (frame->es_subtype == 3 || frame->es_subtype == 4) {
         printf("    Heading status    : %s\n",
-               (frame->flags & MODES_ACFLAGS_HEADING_VALID) ?
+               (frame->flags & kTen90FlagsHeadingValid) ?
                "Valid" : "Unavailable");
         printf("    Heading           : %d\n", frame->heading);
         printf("    Airspeed status   : %s\n",
-               (frame->flags & MODES_ACFLAGS_SPEED_VALID) ?
+               (frame->flags & kTen90FlagsSpeedValid) ?
                "Valid" : "Unavailable");
         printf("    Airspeed          : %d\n", frame->velocity);
         printf("    Vertical status   : %s\n",
-               (frame->flags & MODES_ACFLAGS_VERTRATE_VALID) ?
+               (frame->flags & kTen90FlagsVerticalRateValid) ?
                "Valid" : "Unavailable");
         printf("    Vertical rate src : %d\n", ((frame->msg[8] >> 4) & 1));
         printf("    Vertical rate     : %d\n", frame->vert_rate);
@@ -1120,7 +1140,7 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
         printf("    T flag   : %s\n",
                (frame->msg[6] & 0x08) ? "UTC" : "non-UTC");
         printf("    Altitude : %d feet\n", frame->altitude);
-        if (frame->flags & MODES_ACFLAGS_LATLON_VALID) {
+        if (frame->flags & kTen90FlagsLatLonValid) {
           printf("    Latitude : %f\n", frame->decoded_lat);
           printf("    Longitude: %f\n", frame->decoded_lon);
         } else {
@@ -1132,30 +1152,30 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
         // Airborne Velocity
         if (frame->es_subtype == 1 || frame->es_subtype == 2) {
           printf("    EW status         : %s\n",
-                 (frame->flags & MODES_ACFLAGS_EWSPEED_VALID) ?
+                 (frame->flags & kTen90FlagsEastWestSpeedValid) ?
                  "Valid" : "Unavailable");
           printf("    EW velocity       : %d\n", frame->ew_velocity);
           printf("    NS status         : %s\n",
-                 (frame->flags & MODES_ACFLAGS_NSSPEED_VALID) ?
+                 (frame->flags & kTen90FlagsNorthSouthSpeedValid) ?
                  "Valid" : "Unavailable");
           printf("    NS velocity       : %d\n", frame->ns_velocity);
           printf("    Vertical status   : %s\n",
-                 (frame->flags & MODES_ACFLAGS_VERTRATE_VALID) ?
+                 (frame->flags & kTen90FlagsVerticalRateValid) ?
                  "Valid" : "Unavailable");
           printf("    Vertical rate src : %d\n", ((frame->msg[8] >> 4) & 1));
           printf("    Vertical rate     : %d\n", frame->vert_rate);
 
         } else if (frame->es_subtype == 3 || frame->es_subtype == 4) {
           printf("    Heading status    : %s\n",
-                 (frame->flags & MODES_ACFLAGS_HEADING_VALID) ?
+                 (frame->flags & kTen90FlagsHeadingValid) ?
                  "Valid" : "Unavailable");
           printf("    Heading           : %d\n", frame->heading);
           printf("    Airspeed status   : %s\n",
-                 (frame->flags & MODES_ACFLAGS_SPEED_VALID) ?
+                 (frame->flags & kTen90FlagsSpeedValid) ?
                  "Valid" : "Unavailable");
           printf("    Airspeed          : %d\n", frame->velocity);
           printf("    Vertical status   : %s\n",
-                 (frame->flags & MODES_ACFLAGS_VERTRATE_VALID) ?
+                 (frame->flags & kTen90FlagsVerticalRateValid) ?
                  "Valid" : "Unavailable");
           printf("    Vertical rate src : %d\n", ((frame->msg[8] >> 4) & 1));
           printf("    Vertical rate     : %d\n", frame->vert_rate);
@@ -1193,7 +1213,7 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
       printf("  Mode A : %04x IDENT\n", frame->mode_a);
     } else {
       printf("  Mode A : %04x\n", frame->mode_a);
-      if (frame->flags & MODES_ACFLAGS_ALTITUDE_VALID)
+      if (frame->flags & kTen90FlagsAltitudeValid)
       {printf("  Mode C : %d feet\n", frame->altitude);}
     }
 
@@ -1312,7 +1332,8 @@ int Ten90CprNl(double lat) {
   if (lat < 85.75541621) return 4;
   if (lat < 86.53536998) return 3;
   if (lat < 87.00000000) return 2;
-  else return 1;
+  else
+    return 1;
 }
 
 
@@ -1377,14 +1398,16 @@ int Ten90DecodeCpr(int even_cpr_lat, int even_cpr_lon,
     int ni = Ten90CprN(rlat1, 1);
     int m = (int) floor((((lon0 * (Ten90CprNl(rlat1) - 1)) -
                           (lon1 * Ten90CprNl(rlat1))) / 131072.0) + 0.5);
-    *result_lon = Ten90CprDlon(rlat1, 1, surface) * (Ten90CprMod(m, ni) + lon1 / 131072);
+    *result_lon = (Ten90CprDlon(rlat1, 1, surface) *
+                   (Ten90CprMod(m, ni) + lon1 / 131072));
     *result_lat = rlat1;
   } else {
     // Use even packet.
-    int ni = Ten90CprN(rlat0,0);
+    int ni = Ten90CprN(rlat0, 0);
     int m = (int) floor((((lon0 * (Ten90CprNl(rlat0) - 1)) -
                           (lon1 * Ten90CprNl(rlat0))) / 131072) + 0.5);
-    *result_lon = Ten90CprDlon(rlat0, 0, surface) * (Ten90CprMod(m, ni) + lon0 / 131072);
+    *result_lon = (Ten90CprDlon(rlat0, 0, surface) *
+                   (Ten90CprMod(m, ni) + lon0 / 131072));
     *result_lat = rlat0;
   }
 
@@ -1406,7 +1429,7 @@ int Ten90DecodeCPRRelative(double reference_lat, double reference_lon, int odd,
   double lat;
   double lon;
   double rlon, rlat;
-  int j,m;
+  int j, m;
 
   if (odd) {
     AirDlat = (surface ? 90.0 : 360.0) / 59.0;
