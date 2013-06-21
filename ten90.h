@@ -72,60 +72,86 @@ extern int kTen90UnitMeters;
 
 
 typedef struct {
-  uint32_t *icao_cache;         // Recently seen ICAO addresses cache
+  // Recently seen ICAO addresses cache
+  uint32_t *icao_cache;
   int icao_cache_size;
   int icao_cache_ttl;
-  int max_crc_bit_corrections;  // Number of crc bit error(s) to correct
+  // Number of crc bit error(s) to correct
+  int max_crc_bit_corrections;
 } Ten90Context;
 
 
 // The struct we use to store information about a decoded message.
 
 typedef struct {
-  // Generic fields
-  unsigned char msg[MODES_LONG_MSG_BYTES];  // Binary message.
-  int           msg_number_bits;      // Number of bits in message
-  int           msg_type;             // Downlink format #
-  int           crc_ok;               // True if CRC was valid
-  uint32_t      crc;                  // Message CRC
-  int           number_corrected_bits;  // No. of bits corrected
-  char          corrected[MODES_MAX_BITERRORS];  // corrected bit positions
-  uint32_t      addr;                 // ICAO Address from bytes 1 2 and 3
-  int           phase_corrected;      // True if phase correction was applied
-  uint64_t      msg_timestamp;        // Timestamp of the message
-  int           remote;        // If set this message is from a remote station
-  unsigned char signal_level;         // Signal Amplitude
+  // ---------- Generic fields
+  // Binary message.
+  unsigned char msg[MODES_LONG_MSG_BYTES];
+  // Number of bits in message.
+  int msg_number_bits;
+  // Downlink format #.
+  int msg_type;
+  // True if CRC was valid.
+  int crc_ok;
+  // Message CRC.
+  uint32_t crc;
+  // No. of bits corrected.
+  int number_corrected_bits;
+  // corrected bit positions.
+  char corrected[MODES_MAX_BITERRORS];
+  // ICAO Address from bytes 1 2 and 3.
+  uint32_t addr;
+  // True if phase correction was applied.
+  int phase_corrected;
+  // Timestamp of the message.
+  uint64_t msg_timestamp;
+  // If set this message is from a remote station.
+  int remote;
+  // Signal Amplitude.
+  unsigned char signal_level;
 
-  // DF 11
-  int  ca;                    // Responder capabilities
-  int  iid;
+  // ---------- DF 11
+  // Responder capabilities.
+  int ca;
+  int iid;
 
-  // DF 17, DF 18
-  int    es_type;             // Extended squitter message type.
-  int    es_subtype;          // Extended squitter message subtype.
-  // Reported by aircraft, or computed from from EW and NS velocity
-  int    heading;
-  int    raw_latitude;        // Non decoded latitude.
-  int    raw_longitude;       // Non decoded longitude.
-  // Coordinates obtained from CPR encoded data if/when decoded
+  // ---------- DF 17, DF 18
+  // Extended squitter message type.
+  int es_type;
+  // Extended squitter message subtype.
+  int es_subtype;
+  // Reported by aircraft, or computed from from EW and NS velocity.
+  int heading;
+  // Non decoded latitude.
+  int raw_latitude;
+  // Non decoded longitude.
+  int raw_longitude;
+  // Coordinates obtained from CPR encoded data if/when decoded.
   double decoded_lat;
-  // Coordinates obtained from CPR encoded data if/when decoded
+  // Coordinates obtained from CPR encoded data if/when decoded.
   double decoded_lon;
-  char   flight[16];          // 8 chars flight number.
-  int    ew_velocity;         // E/W velocity.
-  int    ns_velocity;         // N/S velocity.
-  int    vert_rate;           // Vertical rate.
-  // Reported by aircraft, or computed from from EW and NS velocity
-  int    velocity;
+  // 8 chars flight number.
+  char flight[16];
+  // East/west velocity.
+  int ew_velocity;
+  // North/south velocity.
+  int ns_velocity;
+  // Vertical rate.
+  int vert_rate;
+  // Reported by aircraft, or computed from from EW and NS velocity.
+  int velocity;
 
-  // DF4, DF5, DF20, DF21
-  int  fs;                    // Flight status for DF4,5,20,21
-  int  mode_a;                // 13 bits identity (Squawk).
+  // ---------- DF 4, DF 5, DF 20, DF 21
+  // Flight status.
+  int fs;
+  // 13 bits identity (squawk).
+  int mode_a;
 
   // Fields used by multiple message types.
-  int  altitude;
-  int  unit;
-  int  flags;                 // Flags related to fields in this structure
+  int altitude;
+  int unit;
+  // Flags related to fields in this structure.
+  int flags;
 } Ten90Frame;
 
 
