@@ -98,8 +98,8 @@
 
 // Indicates it's OK to do a relative CPR
 #define MODES_ACFLAGS_LATLON_REL_OK  (1<<15)
-#define MODES_ACFLAGS_LLEITHER_VALID (kTen90FlagsCprEvenValid | kTen90FlagsCprEvenValid)
-#define MODES_ACFLAGS_LLBOTH_VALID   (kTen90FlagsCprEvenValid | kTen90FlagsCprEvenValid)
+#define MODES_ACFLAGS_LLEITHER_VALID (kTen90FlagsCprEvenValid | kTen90FlagsCprOddValid)
+#define MODES_ACFLAGS_LLBOTH_VALID   (kTen90FlagsCprEvenValid | kTen90FlagsCprOddValid)
 #define MODES_ACFLAGS_AOG_GROUND     (kTen90FlagsAircraftOnGroundValid | kTen90FlagsAircraftOnGround)
 
 // When debug is set to MODES_DEBUG_NOPREAMBLE, the first sample must be
@@ -1678,7 +1678,7 @@ void interactiveUpdateAircraftModeA(struct aircraft *a) {
                  || (a->modeACflags & MODEAC_MSG_MODEA_ONLY)) ) // Allow Mode-A only matches if this Mode-A is invalid Mode-C
           {
             a->modeACflags |= MODEAC_MSG_MODES_HIT;
-            fprintf(stderr, "Squawk hit\n");
+            //fprintf(stderr, "Squawk hit\n");
           }    // flag this ModeA/C probably belongs to a known Mode S
         }
       }
@@ -1695,7 +1695,7 @@ void interactiveUpdateAircraftModeA(struct aircraft *a) {
           if ( (b->modeAcount > 0) &&
                (b->modeCcount > 1) ) {
             {a->modeACflags |= (MODEAC_MSG_MODES_HIT | MODEAC_MSG_MODEC_OLD);} // flag this ModeA/C probably belongs to a known Mode S
-            fprintf(stderr, "Altitude hit\n");
+            //fprintf(stderr, "Altitude hit\n");
           }
         }
       }
@@ -1753,7 +1753,6 @@ int decodeCPRrelative(struct aircraft *a, int fflag, int surface) {
   double reference_lat, reference_lon;
   double rlon, rlat;
   int lat, lon;
-
   if (a->bFlags & MODES_ACFLAGS_LATLON_REL_OK) {
     // Ok to try aircraft relative first
     reference_lat = a->lat;
