@@ -39,19 +39,6 @@
 // When changing, change also fixBitErrors() and modesInitErrorTable() !!
 #define MODES_MAX_BITERRORS      2          // Global max for fixable bit errors
 
-#define MODEAC_MSG_SAMPLES       (25 * 2)   // include up to the SPI bit
-#define MODEAC_MSG_BYTES         2
-#define MODEAC_MSG_SQUELCH_LEVEL 0x07FF     // Average signal strength limit
-#define MODEAC_MSG_FLAG          (1<<0)
-#define MODEAC_MSG_MODES_HIT     (1<<1)
-#define MODEAC_MSG_MODEA_HIT     (1<<2)
-#define MODEAC_MSG_MODEC_HIT     (1<<3)
-#define MODEAC_MSG_MODEA_ONLY    (1<<4)
-#define MODEAC_MSG_MODEC_OLD     (1<<5)
-
-#define MODES_PREAMBLE_US       8              // microseconds = bits
-#define MODES_PREAMBLE_SAMPLES  (MODES_PREAMBLE_US       * 2)
-#define MODES_PREAMBLE_SIZE     (MODES_PREAMBLE_SAMPLES  * sizeof(uint16_t))
 #define MODES_LONG_MSG_BYTES    14
 #define MODES_SHORT_MSG_BYTES   7
 #define MODES_LONG_MSG_BITS     (MODES_LONG_MSG_BYTES    * 8)
@@ -61,93 +48,110 @@
 #define MODES_LONG_MSG_SIZE     (MODES_LONG_MSG_SAMPLES  * sizeof(uint16_t))
 #define MODES_SHORT_MSG_SIZE    (MODES_SHORT_MSG_SAMPLES * sizeof(uint16_t))
 
+extern int kTen90FlagsLatLonValid;
+extern int kTen90FlagsAltitudeValid;
+extern int kTen90FlagsHeadingValid;
+extern int kTen90FlagsSpeedValid;
+extern int kTen90FlagsVerticalRateValid;
+extern int kTen90FlagsSquawkValid;
+extern int kTen90FlagsCallsignValid;
+extern int kTen90FlagsEastWestSpeedValid;
+extern int kTen90FlagsNorthSouthSpeedValid;
+extern int kTen90FlagsAircraftOnGround;
+extern int kTen90FlagsCprEvenValid;
+extern int kTen90FlagsCprOddValid;
+extern int kTen90FlagsAircraftOnGroundValid;
+extern int kTen90FlagsFlightStatusValid;
+extern int kTen90FlagsNorthSouthEastWestSpeedValid;
+
 extern int kTen90DefaultIcaoCacheSize;
 extern int kTen90DefaultIcaoCacheTtl;
 
 extern int kTen90UnitFeet;
 extern int kTen90UnitMeters;
 
-#define MODES_ACFLAGS_LATLON_VALID   (1<<0)  // Aircraft Lat/Lon is decoded
-#define MODES_ACFLAGS_ALTITUDE_VALID (1<<1)  // Aircraft altitude is known
-#define MODES_ACFLAGS_HEADING_VALID  (1<<2)  // Aircraft heading is known
-#define MODES_ACFLAGS_SPEED_VALID    (1<<3)  // Aircraft speed is known
-#define MODES_ACFLAGS_VERTRATE_VALID (1<<4)  // Aircraft vertical rate is known
-#define MODES_ACFLAGS_SQUAWK_VALID   (1<<5)  // Aircraft Mode A Squawk is known
-#define MODES_ACFLAGS_CALLSIGN_VALID (1<<6)  // Aircraft Callsign Identity
-// Aircraft East West Speed is known
-#define MODES_ACFLAGS_EWSPEED_VALID  (1<<7)
-// Aircraft North South Speed is known
-#define MODES_ACFLAGS_NSSPEED_VALID  (1<<8)
-#define MODES_ACFLAGS_AOG            (1<<9)   // Aircraft is On the Ground
-#define MODES_ACFLAGS_LLEVEN_VALID   (1<<10)  // Aircraft Even Lot/Lon is known
-#define MODES_ACFLAGS_LLODD_VALID    (1<<11)  // Aircraft Odd Lot/Lon is known
-#define MODES_ACFLAGS_AOG_VALID      (1<<12)  // MODES_ACFLAGS_AOG is valid
-#define MODES_ACFLAGS_FS_VALID       (1<<13)  // Aircraft Flight Status is known
-// Aircraft EW and NS Speed is known
-#define MODES_ACFLAGS_NSEWSPD_VALID  (1<<14)
-// Indicates it's OK to do a relative CPR
-#define MODES_ACFLAGS_LATLON_REL_OK  (1<<15)
-
-#define MODES_ACFLAGS_LLEITHER_VALID (MODES_ACFLAGS_LLEVEN_VALID | MODES_ACFLAGS_LLODD_VALID)
-#define MODES_ACFLAGS_LLBOTH_VALID   (MODES_ACFLAGS_LLEVEN_VALID | MODES_ACFLAGS_LLODD_VALID)
-#define MODES_ACFLAGS_AOG_GROUND     (MODES_ACFLAGS_AOG_VALID    | MODES_ACFLAGS_AOG)
-
 
 typedef struct {
-  uint32_t *icao_cache;           // Recently seen ICAO addresses cache
+  // Recently seen ICAO addresses cache
+  uint32_t *icao_cache;
   int icao_cache_size;
   int icao_cache_ttl;
-  int max_crc_bit_corrections;  // Number of crc bit error(s) to correct
+  // Number of crc bit error(s) to correct
+  int max_crc_bit_corrections;
 } Ten90Context;
 
 
 // The struct we use to store information about a decoded message.
 
 typedef struct {
-  // Generic fields
-  unsigned char msg[MODES_LONG_MSG_BYTES];  // Binary message.
-  int           msg_number_bits;      // Number of bits in message
-  int           msg_type;             // Downlink format #
-  int           crcok;                // True if CRC was valid
-  uint32_t      crc;                  // Message CRC
-  int           number_corrected_bits;  // No. of bits corrected
-  char          corrected[MODES_MAX_BITERRORS];  // corrected bit positions
-  uint32_t      addr;                 // ICAO Address from bytes 1 2 and 3
-  int           phase_corrected;      // True if phase correction was applied
-  uint64_t      msg_timestamp;        // Timestamp of the message
-  int           remote;        // If set this message is from a remote station
-  unsigned char signal_level;          // Signal Amplitude
+  // ---------- Generic fields
+  // Binary message.
+  unsigned char msg[MODES_LONG_MSG_BYTES];
+  // Number of bits in message.
+  int msg_number_bits;
+  // Downlink format #.
+  int msg_type;
+  // True if CRC was valid.
+  int crc_ok;
+  // Message CRC.
+  uint32_t crc;
+  // No. of bits corrected.
+  int number_corrected_bits;
+  // corrected bit positions.
+  char corrected[MODES_MAX_BITERRORS];
+  // ICAO Address from bytes 1 2 and 3.
+  uint32_t addr;
+  // True if phase correction was applied.
+  int phase_corrected;
+  // Timestamp of the message.
+  uint64_t msg_timestamp;
+  // If set this message is from a remote station.
+  int remote;
+  // Signal Amplitude.
+  unsigned char signal_level;
 
-  // DF 11
-  int  ca;                    // Responder capabilities
-  int  iid;
+  // ---------- DF 11
+  // Responder capabilities.
+  int ca;
+  int iid;
 
-  // DF 17, DF 18
-  int    es_type;             // Extended squitter message type.
-  int    es_subtype;          // Extended squitter message subtype.
-  // Reported by aircraft, or computed from from EW and NS velocity
-  int    heading;
-  int    raw_latitude;        // Non decoded latitude.
-  int    raw_longitude;       // Non decoded longitude.
-  // Coordinates obtained from CPR encoded data if/when decoded
+  // ---------- DF 17, DF 18
+  // Extended squitter message type.
+  int es_type;
+  // Extended squitter message subtype.
+  int es_subtype;
+  // Reported by aircraft, or computed from from EW and NS velocity.
+  int heading;
+  // Non decoded latitude.
+  int raw_latitude;
+  // Non decoded longitude.
+  int raw_longitude;
+  // Coordinates obtained from CPR encoded data if/when decoded.
   double decoded_lat;
-  // Coordinates obtained from CPR encoded data if/when decoded
+  // Coordinates obtained from CPR encoded data if/when decoded.
   double decoded_lon;
-  char   flight[16];          // 8 chars flight number.
-  int    ew_velocity;         // E/W velocity.
-  int    ns_velocity;         // N/S velocity.
-  int    vert_rate;           // Vertical rate.
-  // Reported by aircraft, or computed from from EW and NS velocity
-  int    velocity;
+  // 8 chars flight number.
+  char flight[16];
+  // East/west velocity.
+  int ew_velocity;
+  // North/south velocity.
+  int ns_velocity;
+  // Vertical rate.
+  int vert_rate;
+  // Reported by aircraft, or computed from from EW and NS velocity.
+  int velocity;
 
-  // DF4, DF5, DF20, DF21
-  int  fs;                    // Flight status for DF4,5,20,21
-  int  mode_a;                // 13 bits identity (Squawk).
+  // ---------- DF 4, DF 5, DF 20, DF 21
+  // Flight status.
+  int fs;
+  // 13 bits identity (squawk).
+  int mode_a;
 
   // Fields used by multiple message types.
-  int  altitude;
-  int  unit;
-  int  flags;                 // Flags related to fields in this structure
+  int altitude;
+  int unit;
+  // Flags related to fields in this structure.
+  int flags;
 } Ten90Frame;
 
 
