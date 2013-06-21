@@ -86,7 +86,7 @@ typedef struct {
   unsigned char msg[MODES_LONG_MSG_BYTES];  // Binary message.
   int           msg_number_bits;      // Number of bits in message
   int           msg_type;             // Downlink format #
-  int           crcok;                // True if CRC was valid
+  int           crc_ok;               // True if CRC was valid
   uint32_t      crc;                  // Message CRC
   int           number_corrected_bits;  // No. of bits corrected
   char          corrected[MODES_MAX_BITERRORS];  // corrected bit positions

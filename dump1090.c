@@ -1238,7 +1238,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
     // ten90_mode_s_message structure two million times per second if
     // we don't have to..
     mm.flags = 0;
-    mm.crcok = 0;
+    mm.crc_ok = 0;
     mm.number_corrected_bits = 0;
 
     if (!use_correction) {
@@ -1455,7 +1455,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 
       // Update statistics
       if (Modes.stats) {
-        if (mm.crcok || use_correction || mm.number_corrected_bits) {
+        if (mm.crc_ok || use_correction || mm.number_corrected_bits) {
 
           if (use_correction) {
             switch (errors) {
@@ -1475,11 +1475,11 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 
           if (mm.number_corrected_bits == 0) {
             if (use_correction) {
-              if (mm.crcok) {Modes.stat_ph_goodcrc++;}
-              else          {Modes.stat_ph_badcrc++;}
+              if (mm.crc_ok) {Modes.stat_ph_goodcrc++;}
+              else           {Modes.stat_ph_badcrc++;}
             } else {
-              if (mm.crcok) {Modes.stat_goodcrc++;}
-              else          {Modes.stat_badcrc++;}
+              if (mm.crc_ok) {Modes.stat_goodcrc++;}
+              else           {Modes.stat_badcrc++;}
             }
 
           } else if (use_correction) {
@@ -1507,15 +1507,15 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
           dumpRawMessage("Demodulated with 0 errors", msg, m, j);
         else if (Modes.debug & MODES_DEBUG_BADCRC &&
                  mm.msg_type == 17 &&
-                 (!mm.crcok || mm.number_corrected_bits != 0))
+                 (!mm.crc_ok || mm.number_corrected_bits != 0))
           dumpRawMessage("Decoded with bad CRC", msg, m, j);
-        else if (Modes.debug & MODES_DEBUG_GOODCRC && mm.crcok &&
+        else if (Modes.debug & MODES_DEBUG_GOODCRC && mm.crc_ok &&
                  mm.number_corrected_bits == 0)
           dumpRawMessage("Decoded with good CRC", msg, m, j);
       }
 
       // Skip this message if we are sure it's fine
-      if (mm.crcok) {
+      if (mm.crc_ok) {
         j += (MODES_PREAMBLE_US+msglen)*2;
       }
 
@@ -1530,7 +1530,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
     }
 
     // Retry with phase correction if enabled, necessary and possible.
-    if (Modes.phase_enhance && !mm.crcok && !mm.number_corrected_bits && !use_correction && j && detectOutOfPhase(pPreamble)) {
+    if (Modes.phase_enhance && !mm.crc_ok && !mm.number_corrected_bits && !use_correction && j && detectOutOfPhase(pPreamble)) {
       use_correction = 1; j--;
     } else {
       use_correction = 0;
@@ -1565,7 +1565,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 // processing and visualization
 //
 void useModesMessage(Ten90Frame *mm) {
-  if ((Modes.check_crc == 0) || (mm->crcok) || (mm->number_corrected_bits)) { // not checking, ok or fixed
+  if ((Modes.check_crc == 0) || (mm->crc_ok) || (mm->number_corrected_bits)) { // not checking, ok or fixed
 
     // Track aircrafts if...
     if ( (Modes.interactive)          //       in interactive mode
@@ -1797,8 +1797,8 @@ int decodeCPRrelative(struct aircraft *a, int fflag, int surface) {
 struct aircraft *interactiveReceiveData(Ten90Frame *mm) {
   struct aircraft *a, *aux;
 
-  // Return if (checking crc) AND (not crcok) AND (not fixed)
-  if (Modes.check_crc && (mm->crcok == 0) && (mm->number_corrected_bits == 0))
+  // Return if (checking crc) AND (not crc_ok) AND (not fixed)
+  if (Modes.check_crc && (mm->crc_ok == 0) && (mm->number_corrected_bits == 0))
     return NULL;
 
   // Loookup our aircraft or create a new one

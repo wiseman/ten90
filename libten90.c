@@ -131,7 +131,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
   // the fields again.
   if (frame->msg_type == 11) {
     // DF 11
-    frame->crcok = (frame->crc < 80);
+    frame->crc_ok = (frame->crc < 80);
     frame->iid = frame->crc;
     frame->addr = (bytes[1] << 16) | (bytes[2] << 8) | (bytes[3]);
     frame->ca = (bytes[0] & 0x07);  // Responder capabilities
@@ -143,7 +143,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
     }
   } else if (frame->msg_type == 17) {
     // DF 17
-    frame->crcok = (frame->crc == 0);
+    frame->crc_ok = (frame->crc == 0);
     frame->addr = (bytes[1] << 16) | (bytes[2] << 8) | (bytes[3]);
     frame->ca = (bytes[0] & 0x07);  // Responder capabilities
 
@@ -155,7 +155,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
 
   } else if (frame->msg_type == 18) {
     // DF 18
-    frame->crcok = (frame->crc == 0);
+    frame->crc_ok = (frame->crc == 0);
     frame->addr = (bytes[1] << 16) | (bytes[2] << 8) | (bytes[3]);
     frame->ca = (bytes[0] & 0x07);  // Control Field
 
@@ -170,7 +170,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
     // recently seen ICAO addresses. If it matches one, then declare
     // the message as valid
     frame->addr  = frame->crc;
-    frame->crcok = Ten90IcaoAddressWasRecentlySeen(context, frame->crc);
+    frame->crc_ok = Ten90IcaoAddressWasRecentlySeen(context, frame->crc);
   }
 
   // Fields for DF0, DF16
@@ -415,7 +415,7 @@ void Ten90DecodeModeAFrame(Ten90Frame *frame, int mode_a) {
 
   // Not much else we can tell from a Mode A/C reply.  Just fudge up a
   // few bits to keep other code happy.
-  frame->crcok = 1;
+  frame->crc_ok = 1;
   frame->number_corrected_bits = 0;
 }
 
@@ -984,7 +984,7 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
   /* } */
 
   if (frame->msg_type < 32)
-    printf("CRC: %06x (%s)\n", (int)frame->crc, frame->crcok ? "ok" : "wrong");
+    printf("CRC: %06x (%s)\n", (int)frame->crc, frame->crc_ok ? "ok" : "wrong");
 
   if (frame->number_corrected_bits != 0)
     printf("No. of bit errors fixed: %d\n", frame->number_corrected_bits);
