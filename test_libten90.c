@@ -5,7 +5,8 @@
 
 int main(void) {
   Ten90Context context;
-  Ten90ContextInit(&context);
+  Ten90ContextInit(
+      &context, kTen90DefaultIcaoCacheSize, kTen90DefaultIcaoCacheTtl);
   /*
     CRC:          000000 (ok)
     DF 11:        All Call Reply.

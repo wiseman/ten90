@@ -61,8 +61,11 @@
 #define MODES_LONG_MSG_SIZE     (MODES_LONG_MSG_SAMPLES  * sizeof(uint16_t))
 #define MODES_SHORT_MSG_SIZE    (MODES_SHORT_MSG_SAMPLES * sizeof(uint16_t))
 
-#define MODES_UNIT_FEET 0
-#define MODES_UNIT_METERS 1
+extern int kTen90DefaultIcaoCacheSize;
+extern int kTen90DefaultIcaoCacheTtl;
+
+extern int kTen90UnitFeet;
+extern int kTen90UnitMeters;
 
 #define MODES_ACFLAGS_LATLON_VALID   (1<<0)  // Aircraft Lat/Lon is decoded
 #define MODES_ACFLAGS_ALTITUDE_VALID (1<<1)  // Aircraft altitude is known
@@ -92,6 +95,8 @@
 
 typedef struct {
   uint32_t *icao_cache;  // Recently seen ICAO addresses cache
+  int icao_cache_size;
+  int icao_cache_ttl;
   int nfix_crc;          // Number of crc bit error(s) to correct
 } Ten90Context;
 
@@ -105,7 +110,7 @@ typedef struct {
   int           msg_type;             // Downlink format #
   int           crcok;                // True if CRC was valid
   uint32_t      crc;                  // Message CRC
-  int           corrected_bits;       // No. of bits corrected
+  int           number_corrected_bits;  // No. of bits corrected
   char          corrected[MODES_MAX_BITERRORS];  // corrected bit positions
   uint32_t      addr;                 // ICAO Address from bytes 1 2 and 3
   int           phase_corrected;      // True if phase correction was applied
@@ -151,14 +156,15 @@ extern "C" {
 #endif
 
   const char* Ten90GetVersion();
-  int Ten90ContextInit(Ten90Context *context);
+  int Ten90ContextInit(Ten90Context *context, int icao_cache_size,
+                       int icao_cache_ttl);
   void Ten90ContextDestroy(Ten90Context *context);
   void Ten90DecodeModeAFrame(Ten90Frame *frame, int ModeA);
   int Ten90DecodeFrame(unsigned char *bytes, Ten90Context *context,
                        Ten90Frame *frame);
   uint32_t Ten90ModeSChecksum(unsigned char *msg, int bits);
-  void Ten90AddRecentlySeenIcaoAddr(uint32_t addr, Ten90Context*);
-  int Ten90IcaoAddressWasRecentlySeen(uint32_t addr, Ten90Context*);
+  void Ten90AddRecentlySeenIcaoAddr(Ten90Context *context, uint32_t addr);
+  int Ten90IcaoAddressWasRecentlySeen(Ten90Context *context, uint32_t addr);
   int Ten90DecodeId13Field(int ID13Field);
   int Ten90DecodeAc13Field(int AC13Field, int *unit);
   int Ten90DecodeAc12Field(int AC12Field, int *unit);

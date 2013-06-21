@@ -82,7 +82,7 @@
 
 #define MODES_USER_LATLON_VALID (1<<0)
 
-// When debug is set to MODES_DEBUG_NOPREAMBLE, the first sample must be
+    // When debug is set to MODES_DEBUG_NOPREAMBLE, the first sample must be
 // at least greater than a given level for us to dump the signal.
 #define MODES_DEBUG_NOPREAMBLE_LEVEL 25
 
@@ -322,7 +322,9 @@ void modesInitConfig(void) {
 void modesInit(void) {
   int i, q;
 
-  if (Ten90ContextInit(&Modes.ctx)) {
+  if (Ten90ContextInit(
+          &Modes.ctx, kTen90DefaultIcaoCacheSize, kTen90DefaultIcaoCacheTtl)) {
+    Modes.ctx.nfix_crc = Modes.nfix_crc;
     fprintf(stderr, "Unable to initialize ten90.\n");
     exit(1);
   }
@@ -336,10 +338,10 @@ void modesInit(void) {
       ((Modes.maglut     = (uint16_t *) malloc(sizeof(uint16_t) * 256 * 256)                                 ) == NULL) ||
       ((Modes.beastOut   = (char     *) malloc(MODES_RAWOUT_BUF_SIZE)                                        ) == NULL) ||
       ((Modes.rawOut     = (char     *) malloc(MODES_RAWOUT_BUF_SIZE)                                        ) == NULL) )
-    {
-      fprintf(stderr, "Out of memory allocating data buffer.\n");
-      exit(1);
-    }
+  {
+    fprintf(stderr, "Out of memory allocating data buffer.\n");
+    exit(1);
+  }
 
   // Clear the buffers that have just been allocated, just in-case
   memset(Modes.data,       127, MODES_ASYNC_BUF_SIZE);
@@ -366,9 +368,9 @@ void modesInit(void) {
 
   // Limit the maximum requested raw output size to less than one Ethernet Block
   if (Modes.net_output_raw_size > (MODES_RAWOUT_BUF_FLUSH))
-    {Modes.net_output_raw_size = MODES_RAWOUT_BUF_FLUSH;}
+  {Modes.net_output_raw_size = MODES_RAWOUT_BUF_FLUSH;}
   if (Modes.net_output_raw_rate > (MODES_RAWOUT_BUF_RATE))
-    {Modes.net_output_raw_rate = MODES_RAWOUT_BUF_RATE;}
+  {Modes.net_output_raw_rate = MODES_RAWOUT_BUF_RATE;}
 
   // Initialise the Block Timers to something half sensible
   ftime(&Modes.stSystemTimeRTL);
@@ -677,55 +679,11 @@ void dumpRawMessage(char *descr, unsigned char *msg,
   printf("---\n\n");
 }
 
-//
-// Similar to fixSingleBitErrors() but try every possible two bit combination.
-// This is very slow and should be tried only against DF17 messages that
-// don't pass the checksum, and only in Aggressive Mode.
+
 /*
-  int fixTwoBitsErrors(unsigned char *msg, int bits) {
-  int j, i;
-  unsigned char aux[MODES_LONG_MSG_BYTES];
-
-  memcpy(aux, msg, bits/8);
-
-  // Do not attempt to error correct Bits 0-4. These contain the DF, and must
-  // be correct because we can only error correct DF17
-  for (j = 5; j < bits; j++) {
-  int byte1    = j/8;
-  int bitmask1 = 1 << (7 - (j & 7));
-  aux[byte1] ^= bitmask1; // Flip j-th bit
-
-  // Don't check the same pairs multiple times, so i starts from j+1
-  for (i = j+1; i < bits; i++) {
-  int byte2    = i/8;
-  int bitmask2 = 1 << (7 - (i & 7));
-
-  aux[byte2] ^= bitmask2; // Flip i-th bit
-
-  if (0 == modesChecksum(aux, bits)) {
-  // The error is fixed. Overwrite the original buffer with
-  // the corrected sequence, and returns the error bit position
-  msg[byte1] = aux[byte1];
-  msg[byte2] = aux[byte2];
-
-  // We return the two bits as a 16 bit integer by shifting
-  // 'i' on the left. This is possible since 'i' will always
-  // be non-zero because i starts from j+1
-  return (j | (i << 8));
-
-  aux[byte2] ^= bitmask2; // Flip i-th bit back
-  }
-
-  aux[byte1] ^= bitmask1; // Flip j-th bit back
-  }
-  }
-  return (-1);
-  }
-*/
-
-/* Code for testing the timing: run all possible 1- and 2-bit error
- * the test message by all 1-bit errors. Run the old code against
- * all of them, and new the code.
+ * Code for testing the timing: run all possible 1- and 2-bit error
+ * the test message by all 1-bit errors. Run the old code against all
+ * of them, and new the code.
  *
  * Example measurements:
  * Timing old vs. new crc correction code:
@@ -736,17 +694,24 @@ void dumpRawMessage(char *descr, unsigned char *msg,
  * indicating a 37-fold resp. 78-fold improvement in speed for 1-bit resp.
  * 2-bit error.
  */
+
 unsigned char tmsg0[MODES_LONG_MSG_BYTES] = {
   /* Test data: first ADS-B message from testfiles/modes1.bin */
   0x8f, 0x4d, 0x20, 0x23, 0x58, 0x7f, 0x34, 0x5e,
   0x35, 0x83, 0x7e, 0x22, 0x18, 0xb2
 };
+
 #define NTWOBITS (MODES_LONG_MSG_BITS*(MODES_LONG_MSG_BITS-1)/2)
+
 unsigned char tmsg1[MODES_LONG_MSG_BITS][MODES_LONG_MSG_BYTES];
 unsigned char tmsg2[NTWOBITS][MODES_LONG_MSG_BYTES];
-/* Init an array of cloned messages with all possible 1-bit errors present,
- * applied to each message at the respective position
+
+
+/*
+ * Init an array of cloned messages with all possible 1-bit errors
+ * present, applied to each message at the respective position
  */
+
 void inittmsg1() {
   int i, bytepos, mask;
   for (i = 0;  i < MODES_LONG_MSG_BITS;  i++) {
@@ -757,9 +722,12 @@ void inittmsg1() {
   }
 }
 
-/* Run sanity check on all but first 5 messages / bits, as those bits
+
+/*
+ * Run sanity check on all but first 5 messages / bits, as those bits
  * are not corrected.
  */
+
 void checktmsg1(FILE *out) {
   int i, k;
   uint32_t crc;
@@ -1057,19 +1025,19 @@ int DetectModeA(uint16_t *m, Ten90Frame *mm)
   m0 = m[0]; m1 = m[1];
 
   if (m0 >= m1)   // m1 *must* be bigger than m0 for this to be F1
-    {return (0);}
+  {return (0);}
 
   m2 = m[2]; m3 = m[3];
 
   //
   // if (m2 <= m0), then assume the sample bob on (Phase == 0), so don't look at m3
   if ((m2 <= m0) || (m2 < m3))
-    {m3 = m2; m2 = m0;}
+  {m3 = m2; m2 = m0;}
 
   if (  (m3 >= m1)   // m1 must be bigger than m3
         || (m0 >  m2)   // m2 can be equal to m0 if ( 0,1,0,0 )
         || (m3 >  m2) ) // m2 can be equal to m3 if ( 0,1,0,0 )
-    {return (0);}
+  {return (0);}
 
   // m0 = noise
   // m1 = noise + (signal *    X))
@@ -1085,7 +1053,7 @@ int DetectModeA(uint16_t *m, Ten90Frame *mm)
 
   if ( (F1_sig < MODEAC_MSG_SQUELCH_LEVEL) // minimum required  F1 signal amplitude
        || (F1_sig < (F1_noise << 2)) )        // minimum allowable Sig/Noise ratio 4:1
-    {return (0);}
+  {return (0);}
 
   // If we get here then we have a potential F1, so look for an equally valid F2 20.3uS later
   //
@@ -1097,28 +1065,28 @@ int DetectModeA(uint16_t *m, Ten90Frame *mm)
   n0     = m[byte++]; n1 = m[byte++];
 
   if (n0 >= n1)   // n1 *must* be bigger than n0 for this to be F2
-    {return (0);}
+  {return (0);}
 
   n2 = m[byte++];
   //
   // if the sample bob on (Phase == 0), don't look at n3
   //
   if ((mPhase + 812) % 20)
-    {n3 = m[byte++];}
+  {n3 = m[byte++];}
   else
-    {n3 = n2; n2 = n0;}
+  {n3 = n2; n2 = n0;}
 
   if (  (n3 >= n1)   // n1 must be bigger than n3
         || (n0 >  n2)   // n2 can be equal to n0 ( 0,1,0,0 )
         || (n3 >  n2) ) // n2 can be equal to n3 ( 0,1,0,0 )
-    {return (0);}
+  {return (0);}
 
   F2_sig   = (n1 + n2) - ((n0 + n3) << 1);
   F2_noise = (n0 + n3) >> 1;
 
   if ( (F2_sig < MODEAC_MSG_SQUELCH_LEVEL) // minimum required  F2 signal amplitude
        || (F2_sig < (F2_noise << 2)) )       // maximum allowable Sig/Noise ratio 4:1
-    {return (0);}
+  {return (0);}
 
   fSig          = (F1_sig   + F2_sig)   >> 1;
   fNoise        = (F1_noise + F2_noise) >> 1;
@@ -1132,66 +1100,66 @@ int DetectModeA(uint16_t *m, Ten90Frame *mm)
   // Do several bits past the SPI to increase error rejection
   //
   for (j = 1, mPhase += 29; j < 48; mPhase += 29, j ++)
-    {
-      byte  = 1 + (mPhase / 20);
+  {
+    byte  = 1 + (mPhase / 20);
 
-      thisSample = m[byte] - fNoise;
-      if (mPhase % 20)                     // If the bit is split over two samples...
-        {thisSample += (m[byte+1] - fNoise);}  //    add in the second sample's energy
+    thisSample = m[byte] - fNoise;
+    if (mPhase % 20)                     // If the bit is split over two samples...
+    {thisSample += (m[byte+1] - fNoise);}  //    add in the second sample's energy
 
-      // If we're calculating a space value
-      if (j & 1)
-        {lastSpace = thisSample;}
+    // If we're calculating a space value
+    if (j & 1)
+    {lastSpace = thisSample;}
+
+    else
+    {// We're calculating a new bit value
+      bit = j >> 1;
+      if (thisSample >= fLevel)
+      {// We're calculating a new bit value, and its a one
+        ModeABits |= ModeABitTable[bit--];  // or in the correct bit
+
+        if (lastBitWasOne)
+        { // This bit is one, last bit was one, so check the last space is somewhere less than one
+          if ( (lastSpace >= (thisSample>>1)) || (lastSpace >= lastBit) )
+          {ModeAErrs |= ModeAMidTable[bit];}
+        }
+
+        else
+        {// This bit,is one, last bit was zero, so check the last space is somewhere less than one
+          if (lastSpace >= (thisSample >> 1))
+          {ModeAErrs |= ModeAMidTable[bit];}
+        }
+
+        lastBitWasOne = 1;
+      }
+
 
       else
-        {// We're calculating a new bit value
-          bit = j >> 1;
-          if (thisSample >= fLevel)
-            {// We're calculating a new bit value, and its a one
-              ModeABits |= ModeABitTable[bit--];  // or in the correct bit
-
-              if (lastBitWasOne)
-                { // This bit is one, last bit was one, so check the last space is somewhere less than one
-                  if ( (lastSpace >= (thisSample>>1)) || (lastSpace >= lastBit) )
-                    {ModeAErrs |= ModeAMidTable[bit];}
-                }
-
-              else
-                {// This bit,is one, last bit was zero, so check the last space is somewhere less than one
-                  if (lastSpace >= (thisSample >> 1))
-                    {ModeAErrs |= ModeAMidTable[bit];}
-                }
-
-              lastBitWasOne = 1;
-            }
-
-
-          else
-            {// We're calculating a new bit value, and its a zero
-              if (lastBitWasOne)
-                { // This bit is zero, last bit was one, so check the last space is somewhere in between
-                  if (lastSpace >= lastBit)
-                    {ModeAErrs |= ModeAMidTable[bit];}
-                }
-
-              else
-                {// This bit,is zero, last bit was zero, so check the last space is zero too
-                  if (lastSpace >= fLoLo)
-                    {ModeAErrs |= ModeAMidTable[bit];}
-                }
-
-              lastBitWasOne = 0;
-            }
-
-          lastBit = (thisSample >> 1);
+      {// We're calculating a new bit value, and its a zero
+        if (lastBitWasOne)
+        { // This bit is zero, last bit was one, so check the last space is somewhere in between
+          if (lastSpace >= lastBit)
+          {ModeAErrs |= ModeAMidTable[bit];}
         }
+
+        else
+        {// This bit,is zero, last bit was zero, so check the last space is zero too
+          if (lastSpace >= fLoLo)
+          {ModeAErrs |= ModeAMidTable[bit];}
+        }
+
+        lastBitWasOne = 0;
+      }
+
+      lastBit = (thisSample >> 1);
     }
+  }
 
   //
   // Output format is : 00:A4:A2:A1:00:B4:B2:B1:00:C4:C2:C1:00:D4:D2:D1
   //
   if ((ModeABits < 3) || (ModeABits & 0xFFFF8808) || (ModeAErrs) )
-    {return (ModeABits = 0);}
+  {return (ModeABits = 0);}
 
   fSig            = (fSig + 0x7F) >> 8;
   mm->signal_level = ((fSig < 255) ? fSig : 255);
@@ -1244,85 +1212,87 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
     pPreamble = &m[j];
     pPayload  = &m[j+MODES_PREAMBLE_SAMPLES];
 
-    // Rather than clear the whole mm structure, just clear the parts which are required. The clear
-    // is required for every bit of the input stream, and we don't want to be memset-ing the whole
-    // ten90_mode_s_message structure two million times per second if we don't have to..
-    mm.flags          =
-      mm.crcok           =
-      mm.corrected_bits   = 0;
+    // Rather than clear the whole mm structure, just clear the parts
+    // which are required. The clear is required for every bit of the
+    // input stream, and we don't want to be memset-ing the whole
+    // ten90_mode_s_message structure two million times per second if
+    // we don't have to..
+    mm.flags = 0;
+    mm.crcok = 0;
+    mm.number_corrected_bits = 0;
 
-    if (!use_correction)  // This is not a re-try with phase correction
-      {                 // so try to find a new preamble
+    if (!use_correction) {
+      // This is not a re-try with phase correction
+      // so try to find a new preamble
+      if (Modes.mode_ac)
+      {
+        int ModeA = DetectModeA(pPreamble, &mm);
 
-        if (Modes.mode_ac)
-          {
-            int ModeA = DetectModeA(pPreamble, &mm);
+        if (ModeA) // We have found a valid ModeA/C in the data
+        {
+          mm.msg_timestamp = Modes.timestampBlk + ((j+1) * 6);
 
-            if (ModeA) // We have found a valid ModeA/C in the data
-              {
-                mm.msg_timestamp = Modes.timestampBlk + ((j+1) * 6);
+          // Decode the received message
+          Ten90DecodeModeAFrame(&mm, ModeA);
 
-                // Decode the received message
-                Ten90DecodeModeAFrame(&mm, ModeA);
+          // Pass data to the next layer
+          useModesMessage(&mm);
 
-                // Pass data to the next layer
-                useModesMessage(&mm);
-
-                j += MODEAC_MSG_SAMPLES;
-                Modes.stat_ModeAC++;
-                continue;
-              }
-          }
-
-        /* First check of relations between the first 10 samples
-         * representing a valid preamble. We don't even investigate further
-         * if this simple test is not passed. */
-        if (!(pPreamble[0] > pPreamble[1] &&
-              pPreamble[1] < pPreamble[2] &&
-              pPreamble[2] > pPreamble[3] &&
-              pPreamble[3] < pPreamble[0] &&
-              pPreamble[4] < pPreamble[0] &&
-              pPreamble[5] < pPreamble[0] &&
-              pPreamble[6] < pPreamble[0] &&
-              pPreamble[7] > pPreamble[8] &&
-              pPreamble[8] < pPreamble[9] &&
-              pPreamble[9] > pPreamble[6]))
-          {
-            if (Modes.debug & MODES_DEBUG_NOPREAMBLE &&
-                *pPreamble  > MODES_DEBUG_NOPREAMBLE_LEVEL)
-              dumpRawMessage("Unexpected ratio among first 10 samples", msg, m, j);
-            continue;
-          }
-
-        /* The samples between the two spikes must be < than the average
-         * of the high spikes level. We don't test bits too near to
-         * the high levels as signals can be out of phase so part of the
-         * energy can be in the near samples. */
-        high = (pPreamble[0] + pPreamble[2] + pPreamble[7] + pPreamble[9]) / 6;
-        if (pPreamble[4] >= high ||
-            pPreamble[5] >= high)
-          {
-            if (Modes.debug & MODES_DEBUG_NOPREAMBLE &&
-                *pPreamble  > MODES_DEBUG_NOPREAMBLE_LEVEL)
-              dumpRawMessage("Too high level in samples between 3 and 6", msg, m, j);
-            continue;
-          }
-
-        /* Similarly samples in the range 11-14 must be low, as it is the
-         * space between the preamble and real data. Again we don't test
-         * bits too near to high levels, see above. */
-        if (pPreamble[11] >= high ||
-            pPreamble[12] >= high ||
-            pPreamble[13] >= high ||
-            pPreamble[14] >= high)
-          {
-            if (Modes.debug & MODES_DEBUG_NOPREAMBLE &&
-                *pPreamble  > MODES_DEBUG_NOPREAMBLE_LEVEL)
-              dumpRawMessage("Too high level in samples between 10 and 15", msg, m, j);
-            continue;
-          }
-        Modes.stat_valid_preamble++;
+          j += MODEAC_MSG_SAMPLES;
+          Modes.stat_ModeAC++;
+          continue;
+        }
       }
+
+      /* First check of relations between the first 10 samples
+       * representing a valid preamble. We don't even investigate further
+       * if this simple test is not passed. */
+      if (!(pPreamble[0] > pPreamble[1] &&
+            pPreamble[1] < pPreamble[2] &&
+            pPreamble[2] > pPreamble[3] &&
+            pPreamble[3] < pPreamble[0] &&
+            pPreamble[4] < pPreamble[0] &&
+            pPreamble[5] < pPreamble[0] &&
+            pPreamble[6] < pPreamble[0] &&
+            pPreamble[7] > pPreamble[8] &&
+            pPreamble[8] < pPreamble[9] &&
+            pPreamble[9] > pPreamble[6]))
+      {
+        if (Modes.debug & MODES_DEBUG_NOPREAMBLE &&
+            *pPreamble  > MODES_DEBUG_NOPREAMBLE_LEVEL)
+          dumpRawMessage("Unexpected ratio among first 10 samples", msg, m, j);
+        continue;
+      }
+
+      /* The samples between the two spikes must be < than the average
+       * of the high spikes level. We don't test bits too near to
+       * the high levels as signals can be out of phase so part of the
+       * energy can be in the near samples. */
+      high = (pPreamble[0] + pPreamble[2] + pPreamble[7] + pPreamble[9]) / 6;
+      if (pPreamble[4] >= high ||
+          pPreamble[5] >= high)
+      {
+        if (Modes.debug & MODES_DEBUG_NOPREAMBLE &&
+            *pPreamble  > MODES_DEBUG_NOPREAMBLE_LEVEL)
+          dumpRawMessage("Too high level in samples between 3 and 6", msg, m, j);
+        continue;
+      }
+
+      /* Similarly samples in the range 11-14 must be low, as it is the
+       * space between the preamble and real data. Again we don't test
+       * bits too near to high levels, see above. */
+      if (pPreamble[11] >= high ||
+          pPreamble[12] >= high ||
+          pPreamble[13] >= high ||
+          pPreamble[14] >= high)
+      {
+        if (Modes.debug & MODES_DEBUG_NOPREAMBLE &&
+            *pPreamble  > MODES_DEBUG_NOPREAMBLE_LEVEL)
+          dumpRawMessage("Too high level in samples between 10 and 15", msg, m, j);
+        continue;
+      }
+      Modes.stat_valid_preamble++;
+    }
 
     else {
       /* If the previous attempt with this message failed, retry using
@@ -1346,9 +1316,9 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
     // We should have 4 'bits' of 0/1 and 1/0 samples in the preamble,
     // so include these in the signal strength
     sigStrength = (pPreamble[0]-pPreamble[1])
-      + (pPreamble[2]-pPreamble[3])
-      + (pPreamble[7]-pPreamble[6])
-      + (pPreamble[9]-pPreamble[8]);
+                  + (pPreamble[2]-pPreamble[3])
+                  + (pPreamble[7]-pPreamble[6])
+                  + (pPreamble[9]-pPreamble[8]);
 
     msglen = scanlen = MODES_LONG_MSG_BITS;
     for (i = 0; i < scanlen; i++) {
@@ -1356,29 +1326,29 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
       uint32_t b = *pPtr++;
 
       if      (a > b)
-        {theByte |= 1; if (i < 56) {sigStrength += (a-b);}}
+      {theByte |= 1; if (i < 56) {sigStrength += (a-b);}}
       else if (a < b)
-        {/*theByte |= 0;*/ if (i < 56) {sigStrength += (b-a);}}
+      {/*theByte |= 0;*/ if (i < 56) {sigStrength += (b-a);}}
       else if (i >= MODES_SHORT_MSG_BITS) //(a == b), and we're in the long part of a frame
-        {errors++;  /*theByte |= 0;*/}
+      {errors++;  /*theByte |= 0;*/}
       else if (i >= 5)                    //(a == b), and we're in the short part of a frame
-        {scanlen = MODES_LONG_MSG_BITS; errors56 = ++errors;/*theByte |= 0;*/}
+      {scanlen = MODES_LONG_MSG_BITS; errors56 = ++errors;/*theByte |= 0;*/}
       else if (i)                         //(a == b), and we're in the message type part of a frame
-        {errorsTy = errors56 = ++errors; theErrs |= 1; /*theByte |= 0;*/}
+      {errorsTy = errors56 = ++errors; theErrs |= 1; /*theByte |= 0;*/}
       else                                //(a == b), and we're in the first bit of the message type part of a frame
-        {errorsTy = errors56 = ++errors; theErrs |= 1; theByte |= 1;}
+      {errorsTy = errors56 = ++errors; theErrs |= 1; theByte |= 1;}
 
       if ((i & 7) == 7)
-        {*pMsg++ = theByte;}
+      {*pMsg++ = theByte;}
       else if (i == 4) {
         msglen  = Ten90ModeSMessageLenByType(theByte);
         if (errors == 0)
-          {scanlen = msglen;}
+        {scanlen = msglen;}
       }
 
       theByte = theByte << 1;
       if (i < 7)
-        {theErrs = theErrs << 1;}
+      {theErrs = theErrs << 1;}
 
       // If we've exceeded the permissible number of encoding errors, abandon ship now
       if (errors > MODES_MSG_ENCODER_ERRS) {
@@ -1465,25 +1435,25 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 
       // Update statistics
       if (Modes.stats) {
-        if (mm.crcok || use_correction || mm.corrected_bits) {
+        if (mm.crcok || use_correction || mm.number_corrected_bits) {
 
           if (use_correction) {
             switch (errors) {
-            case 0: {Modes.stat_ph_demodulated0++; break;}
-            case 1: {Modes.stat_ph_demodulated1++; break;}
-            case 2: {Modes.stat_ph_demodulated2++; break;}
-            default:{Modes.stat_ph_demodulated3++; break;}
+              case 0: {Modes.stat_ph_demodulated0++; break;}
+              case 1: {Modes.stat_ph_demodulated1++; break;}
+              case 2: {Modes.stat_ph_demodulated2++; break;}
+              default:{Modes.stat_ph_demodulated3++; break;}
             }
           } else {
             switch (errors) {
-            case 0: {Modes.stat_demodulated0++; break;}
-            case 1: {Modes.stat_demodulated1++; break;}
-            case 2: {Modes.stat_demodulated2++; break;}
-            default:{Modes.stat_demodulated3++; break;}
+              case 0: {Modes.stat_demodulated0++; break;}
+              case 1: {Modes.stat_demodulated1++; break;}
+              case 2: {Modes.stat_demodulated2++; break;}
+              default:{Modes.stat_demodulated3++; break;}
             }
           }
 
-          if (mm.corrected_bits == 0) {
+          if (mm.number_corrected_bits == 0) {
             if (use_correction) {
               if (mm.crcok) {Modes.stat_ph_goodcrc++;}
               else          {Modes.stat_ph_badcrc++;}
@@ -1495,17 +1465,17 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
           } else if (use_correction) {
             Modes.stat_ph_badcrc++;
             Modes.stat_ph_fixed++;
-            if ( (mm.corrected_bits)
-                 && (mm.corrected_bits <= MODES_MAX_BITERRORS) ) {
-              Modes.stat_ph_bit_fix[mm.corrected_bits - 1] += 1;
+            if ( (mm.number_corrected_bits)
+                 && (mm.number_corrected_bits <= MODES_MAX_BITERRORS) ) {
+              Modes.stat_ph_bit_fix[mm.number_corrected_bits - 1] += 1;
             }
 
           } else {
             Modes.stat_badcrc++;
             Modes.stat_fixed++;
-            if ( (mm.corrected_bits)
-                 && (mm.corrected_bits <= MODES_MAX_BITERRORS) ) {
-              Modes.stat_bit_fix[mm.corrected_bits - 1] += 1;
+            if ( (mm.number_corrected_bits)
+                 && (mm.number_corrected_bits <= MODES_MAX_BITERRORS) ) {
+              Modes.stat_bit_fix[mm.number_corrected_bits - 1] += 1;
             }
           }
         }
@@ -1517,10 +1487,10 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
           dumpRawMessage("Demodulated with 0 errors", msg, m, j);
         else if (Modes.debug & MODES_DEBUG_BADCRC &&
                  mm.msg_type == 17 &&
-                 (!mm.crcok || mm.corrected_bits != 0))
+                 (!mm.crcok || mm.number_corrected_bits != 0))
           dumpRawMessage("Decoded with bad CRC", msg, m, j);
         else if (Modes.debug & MODES_DEBUG_GOODCRC && mm.crcok &&
-                 mm.corrected_bits == 0)
+                 mm.number_corrected_bits == 0)
           dumpRawMessage("Decoded with good CRC", msg, m, j);
       }
 
@@ -1540,7 +1510,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
     }
 
     // Retry with phase correction if enabled, necessary and possible.
-    if (Modes.phase_enhance && !mm.crcok && !mm.corrected_bits && !use_correction && j && detectOutOfPhase(pPreamble)) {
+    if (Modes.phase_enhance && !mm.crcok && !mm.number_corrected_bits && !use_correction && j && detectOutOfPhase(pPreamble)) {
       use_correction = 1; j--;
     } else {
       use_correction = 0;
@@ -1549,21 +1519,21 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 
   //Send any remaining partial raw buffers now
   if (Modes.rawOutUsed || Modes.beastOutUsed)
+  {
+    Modes.net_output_raw_rate_count++;
+    if (Modes.net_output_raw_rate_count > Modes.net_output_raw_rate)
     {
-      Modes.net_output_raw_rate_count++;
-      if (Modes.net_output_raw_rate_count > Modes.net_output_raw_rate)
-        {
-          if (Modes.rawOutUsed) {
-            modesSendAllClients(Modes.ros, Modes.rawOut, Modes.rawOutUsed);
-            Modes.rawOutUsed = 0;
-          }
-          if (Modes.beastOutUsed) {
-            modesSendAllClients(Modes.bos, Modes.beastOut, Modes.beastOutUsed);
-            Modes.beastOutUsed = 0;
-          }
-          Modes.net_output_raw_rate_count = 0;
-        }
+      if (Modes.rawOutUsed) {
+        modesSendAllClients(Modes.ros, Modes.rawOut, Modes.rawOutUsed);
+        Modes.rawOutUsed = 0;
+      }
+      if (Modes.beastOutUsed) {
+        modesSendAllClients(Modes.bos, Modes.beastOut, Modes.beastOutUsed);
+        Modes.beastOutUsed = 0;
+      }
+      Modes.net_output_raw_rate_count = 0;
     }
+  }
 }
 
 //
@@ -1575,7 +1545,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 // processing and visualization
 //
 void useModesMessage(Ten90Frame *mm) {
-  if ((Modes.check_crc == 0) || (mm->crcok) || (mm->corrected_bits)) { // not checking, ok or fixed
+  if ((Modes.check_crc == 0) || (mm->crcok) || (mm->number_corrected_bits)) { // not checking, ok or fixed
 
     // Track aircrafts if...
     if ( (Modes.interactive)          //       in interactive mode
@@ -1681,10 +1651,10 @@ void interactiveUpdateAircraftModeA(struct aircraft *a) {
           if ( (b->modeAcount > 0) &&
                ( (b->modeCcount > 1)
                  || (a->modeACflags & MODEAC_MSG_MODEA_ONLY)) ) // Allow Mode-A only matches if this Mode-A is invalid Mode-C
-            {
-              a->modeACflags |= MODEAC_MSG_MODES_HIT;
-              fprintf(stderr, "Squawk hit\n");
-            }    // flag this ModeA/C probably belongs to a known Mode S
+          {
+            a->modeACflags |= MODEAC_MSG_MODES_HIT;
+            fprintf(stderr, "Squawk hit\n");
+          }    // flag this ModeA/C probably belongs to a known Mode S
         }
       }
 
@@ -1831,7 +1801,7 @@ void decodeCPR(struct aircraft *a, int fflag, int surface) {
   if (surface) {
     // If we're on the ground, make sure we have our receiver base station Lat/Lon
     if (0 == (Modes.bUserFlags & MODES_USER_LATLON_VALID))
-      {return;}
+    {return;}
     rlat0 += floor(Modes.fUserLat / 90.0) * 90.0;  // Move from 1st quadrant to our quadrant
     rlat1 += floor(Modes.fUserLat / 90.0) * 90.0;
   } else {
@@ -1946,7 +1916,7 @@ struct aircraft *interactiveReceiveData(Ten90Frame *mm) {
   struct aircraft *a, *aux;
 
   // Return if (checking crc) AND (not crcok) AND (not fixed)
-  if (Modes.check_crc && (mm->crcok == 0) && (mm->corrected_bits == 0))
+  if (Modes.check_crc && (mm->crcok == 0) && (mm->number_corrected_bits == 0))
     return NULL;
 
   // Loookup our aircraft or create a new one
@@ -1990,10 +1960,10 @@ struct aircraft *interactiveReceiveData(Ten90Frame *mm) {
          && (a->altitude  != mm->altitude ) ) // and Altitude has changed
       //        && (a->modeC     != mm->modeC + 1)   // and Altitude not changed by +100 feet
       //        && (a->modeC + 1 != mm->modeC    ) ) // and Altitude not changes by -100 feet
-      {
-        a->modeCcount   = 0;               //....zero the hit count
-        a->modeACflags &= ~MODEAC_MSG_MODEC_HIT;
-      }
+    {
+      a->modeCcount   = 0;               //....zero the hit count
+      a->modeACflags &= ~MODEAC_MSG_MODEC_HIT;
+    }
     a->altitude = mm->altitude;
     a->modeC    = (mm->altitude + 49) / 100;
   }
@@ -2096,13 +2066,13 @@ void interactiveShowData(void) {
 
   if (Modes.interactive_rtl1090 == 0) {
     printf (
-            "Hex     Mode  Sqwk  Flight   Alt    Spd  Hdg    Lat      Long   Sig  Msgs   Ti%c\n", progress);
+        "Hex     Mode  Sqwk  Flight   Alt    Spd  Hdg    Lat      Long   Sig  Msgs   Ti%c\n", progress);
   } else {
     printf (
-            "Hex    Flight   Alt      V/S GS  TT  SSR  G*456^ Msgs    Seen %c\n", progress);
+        "Hex    Flight   Alt      V/S GS  TT  SSR  G*456^ Msgs    Seen %c\n", progress);
   }
   printf(
-         "-------------------------------------------------------------------------------\n");
+      "-------------------------------------------------------------------------------\n");
 
   while(a && count < Modes.interactive_rows) {
     int msgs  = a->messages;
@@ -2375,13 +2345,13 @@ void modesSendBeastOutput(Ten90Frame *mm) {
 
   *p++ = 0x1a;
   if      (msgLen == MODES_SHORT_MSG_BYTES)
-    {*p++ = '2';}
+  {*p++ = '2';}
   else if (msgLen == MODES_LONG_MSG_BYTES)
-    {*p++ = '3';}
+  {*p++ = '3';}
   else if (msgLen == MODEAC_MSG_BYTES)
-    {*p++ = '1';}
+  {*p++ = '1';}
   else
-    {return;}
+  {return;}
 
   pTimeStamp = (char *) &mm->msg_timestamp;
   for (j = 5; j >= 0; j--) {
@@ -2394,11 +2364,11 @@ void modesSendBeastOutput(Ten90Frame *mm) {
 
   Modes.beastOutUsed += (msgLen + 9);
   if (Modes.beastOutUsed >= Modes.net_output_raw_size)
-    {
-      modesSendAllClients(Modes.bos, Modes.beastOut, Modes.beastOutUsed);
-      Modes.beastOutUsed = 0;
-      Modes.net_output_raw_rate_count = 0;
-    }
+  {
+    modesSendAllClients(Modes.bos, Modes.beastOut, Modes.beastOutUsed);
+    Modes.beastOutUsed = 0;
+    Modes.net_output_raw_rate_count = 0;
+  }
 }
 
 /* Write raw output to TCP clients. */
@@ -2429,11 +2399,11 @@ void modesSendRawOutput(Ten90Frame *mm) {
 
   Modes.rawOutUsed += ((msgLen*2) + 3);
   if (Modes.rawOutUsed >= Modes.net_output_raw_size)
-    {
-      modesSendAllClients(Modes.ros, Modes.rawOut, Modes.rawOutUsed);
-      Modes.rawOutUsed = 0;
-      Modes.net_output_raw_rate_count = 0;
-    }
+  {
+    modesSendAllClients(Modes.ros, Modes.rawOut, Modes.rawOutUsed);
+    Modes.rawOutUsed = 0;
+    Modes.net_output_raw_rate_count = 0;
+  }
 }
 //
 // Write SBS output to TCP clients
@@ -2466,14 +2436,14 @@ void modesSendSBSOutput(Ten90Frame *mm) {
     msgType = 1;
   } else if ((mm->es_type >= 5) && (mm->es_type <=  8)) {
     if (mm->flags & MODES_ACFLAGS_LATLON_VALID)
-      {msgType = 2;}
+    {msgType = 2;}
     else
-      {msgType = 7;}
+    {msgType = 7;}
   } else if ((mm->es_type >= 9) && (mm->es_type <= 18)) {
     if (mm->flags & MODES_ACFLAGS_LATLON_VALID)
-      {msgType = 3;}
+    {msgType = 3;}
     else
-      {msgType = 7;}
+    {msgType = 7;}
   } else if (mm->es_type !=  19) {
     return;
   } else if ((mm->es_subtype == 1) || (mm->es_subtype == 2)) {
@@ -2492,7 +2462,7 @@ void modesSendSBSOutput(Ten90Frame *mm) {
     offset   = offset / 12000;                                // convert to milliseconds
     epocTime.millitm += offset;                               // add on the offset time to the Block start time
     if (epocTime.millitm > 999)                               // if we've caused an overflow into the next second...
-      {epocTime.millitm -= 1000; epocTime.time ++;}         //    ..correct the overflow
+    {epocTime.millitm -= 1000; epocTime.time ++;}         //    ..correct the overflow
     stTime   = *localtime(&epocTime.time);                    // convert the time to year, month  day, hours, min, sec
     p += sprintf(p, "%04d/%02d/%02d,", (stTime.tm_year+1900),(stTime.tm_mon+1), stTime.tm_mday);
     p += sprintf(p, "%02d:%02d:%02d.%03d,", stTime.tm_hour, stTime.tm_min, stTime.tm_sec, epocTime.millitm);
@@ -2637,30 +2607,30 @@ int decodeHexMessage(struct client *c, char *hex) {
   }
 
   switch(hex[0]) {
-  case '<': {
-    mm.signal_level = (hexDigitVal(hex[13]) << 4) | hexDigitVal(hex[14]);
-    // Skip <, timestamp and siglevel, and ;
-    hex += 15; l -= 16;
-    break;
-  }
+    case '<': {
+      mm.signal_level = (hexDigitVal(hex[13]) << 4) | hexDigitVal(hex[14]);
+      // Skip <, timestamp and siglevel, and ;
+      hex += 15; l -= 16;
+      break;
+    }
 
-  case '@':     // No CRC check
-  case '%': {   // CRC is OK
-    // Skip @,%, and timestamp, and ;
-    hex += 13; l -= 14;
-    break;
-  }
-  case '*':
-  case ':': {
-    // Skip * and ;
-    hex++; l -= 2;
-    break;
-  }
+    case '@':     // No CRC check
+    case '%': {   // CRC is OK
+      // Skip @,%, and timestamp, and ;
+      hex += 13; l -= 14;
+      break;
+    }
+    case '*':
+    case ':': {
+      // Skip * and ;
+      hex++; l -= 2;
+      break;
+    }
 
-  default: {
-    // We don't know what this is, so abort
-    return 0;
-  }
+    default: {
+      // We don't know what this is, so abort
+      return 0;
+    }
   }
 
   if ((l != (MODEAC_MSG_BYTES * 2)) &&
@@ -3053,55 +3023,55 @@ void modesReadFromClients(void) {
 
 void showHelp(void) {
   printf(
-         "-----------------------------------------------------------------------------\n"
-         "|                        dump1090 ModeS Receiver         Ver : " DUMP1090_VERSION " |\n"
-         "-----------------------------------------------------------------------------\n"
-         "--device-index <index>   Select RTL device (default: 0)\n"
-         "--gain <db>              Set gain (default: max gain. Use -100 for auto-gain)\n"
-         "--enable-agc             Enable the Automatic Gain Control (default: off)\n"
-         "--freq <hz>              Set frequency (default: 1090 Mhz)\n"
-         "--ifile <filename>       Read data from file (use '-' for stdin)\n"
-         "--interactive            Interactive mode refreshing data on screen\n"
-         "--interactive-rows <num> Max number of rows in interactive mode (default: 15)\n"
-         "--interactive-ttl <sec>  Remove from list if idle for <sec> (default: 60)\n"
-         "--interactive-rtl1090    Display flight table in RTL1090 format\n"
-         "--raw                    Show only messages hex values\n"
-         "--net                    Enable networking\n"
-         "--modeac                 Enable decoding of SSR Modes 3/A & 3/C\n"
-         "--net-beast              TCP raw output in Beast binary format\n"
-         "--net-only               Enable just networking, no RTL device or file used\n"
-         "--net-http-port <port>   HTTP server port (default: 8080)\n"
-         "--net-ri-port <port>     TCP raw input listen port  (default: 30001)\n"
-         "--net-ro-port <port>     TCP raw output listen port (default: 30002)\n"
-         "--net-sbs-port <port>    TCP BaseStation output listen port (default: 30003)\n"
-         "--net-bi-port <port>     TCP Beast input listen port  (default: 30004)\n"
-         "--net-bo-port <port>     TCP Beast output listen port (default: 30005)\n"
-         "--net-ro-size <size>     TCP raw output minimum size (default: 0)\n"
-         "--net-ro-rate <rate>     TCP raw output memory flush rate (default: 0)\n"
-         "--lat <latitude>         Reference/receiver latitide for surface posn (opt)\n"
-         "--lon <longitude>        Reference/receiver longitude for surface posn (opt)\n"
-         "--fix                    Enable single-bits error correction using CRC\n"
-         "--no-fix                 Disable single-bits error correction using CRC\n"
-         "--no-crc-check           Disable messages with broken CRC (discouraged)\n"
-         "--phase-enhance          Enable phase enhancement\n"
-         "--aggressive             More CPU for more messages (two bits fixes, ...)\n"
-         "--mlat                   display raw messages in Beast ascii mode\n"
-         "--stats                  With --ifile print stats at exit. No other output\n"
-         "--onlyaddr               Show only ICAO addresses (testing purposes)\n"
-         "--metric                 Use metric units (meters, km/h, ...)\n"
-         "--snip <level>           Strip IQ file removing samples < level\n"
-         "--debug <flags>          Debug mode (verbose), see README for details\n"
-         "--quiet                  Disable output to stdout. Use for daemon applications\n"
-         "--ppm <error>            Set receiver error in parts per million (default 0)\n"
-         "--help                   Show this help\n"
-         "\n"
-         "Debug mode flags: d = Log frames decoded with errors\n"
-         "                  D = Log frames decoded with zero errors\n"
-         "                  c = Log frames with bad CRC\n"
-         "                  C = Log frames with good CRC\n"
-         "                  p = Log frames with bad preamble\n"
-         "                  n = Log network debugging info\n"
-         "                  j = Log frames to frames.js, loadable by debug.html\n"
+      "-----------------------------------------------------------------------------\n"
+      "|                        dump1090 ModeS Receiver         Ver : " DUMP1090_VERSION " |\n"
+      "-----------------------------------------------------------------------------\n"
+      "--device-index <index>   Select RTL device (default: 0)\n"
+      "--gain <db>              Set gain (default: max gain. Use -100 for auto-gain)\n"
+      "--enable-agc             Enable the Automatic Gain Control (default: off)\n"
+      "--freq <hz>              Set frequency (default: 1090 Mhz)\n"
+      "--ifile <filename>       Read data from file (use '-' for stdin)\n"
+      "--interactive            Interactive mode refreshing data on screen\n"
+      "--interactive-rows <num> Max number of rows in interactive mode (default: 15)\n"
+      "--interactive-ttl <sec>  Remove from list if idle for <sec> (default: 60)\n"
+      "--interactive-rtl1090    Display flight table in RTL1090 format\n"
+      "--raw                    Show only messages hex values\n"
+      "--net                    Enable networking\n"
+      "--modeac                 Enable decoding of SSR Modes 3/A & 3/C\n"
+      "--net-beast              TCP raw output in Beast binary format\n"
+      "--net-only               Enable just networking, no RTL device or file used\n"
+      "--net-http-port <port>   HTTP server port (default: 8080)\n"
+      "--net-ri-port <port>     TCP raw input listen port  (default: 30001)\n"
+      "--net-ro-port <port>     TCP raw output listen port (default: 30002)\n"
+      "--net-sbs-port <port>    TCP BaseStation output listen port (default: 30003)\n"
+      "--net-bi-port <port>     TCP Beast input listen port  (default: 30004)\n"
+      "--net-bo-port <port>     TCP Beast output listen port (default: 30005)\n"
+      "--net-ro-size <size>     TCP raw output minimum size (default: 0)\n"
+      "--net-ro-rate <rate>     TCP raw output memory flush rate (default: 0)\n"
+      "--lat <latitude>         Reference/receiver latitide for surface posn (opt)\n"
+      "--lon <longitude>        Reference/receiver longitude for surface posn (opt)\n"
+      "--fix                    Enable single-bits error correction using CRC\n"
+      "--no-fix                 Disable single-bits error correction using CRC\n"
+      "--no-crc-check           Disable messages with broken CRC (discouraged)\n"
+      "--phase-enhance          Enable phase enhancement\n"
+      "--aggressive             More CPU for more messages (two bits fixes, ...)\n"
+      "--mlat                   display raw messages in Beast ascii mode\n"
+      "--stats                  With --ifile print stats at exit. No other output\n"
+      "--onlyaddr               Show only ICAO addresses (testing purposes)\n"
+      "--metric                 Use metric units (meters, km/h, ...)\n"
+      "--snip <level>           Strip IQ file removing samples < level\n"
+      "--debug <flags>          Debug mode (verbose), see README for details\n"
+      "--quiet                  Disable output to stdout. Use for daemon applications\n"
+      "--ppm <error>            Set receiver error in parts per million (default 0)\n"
+      "--help                   Show this help\n"
+      "\n"
+      "Debug mode flags: d = Log frames decoded with errors\n"
+      "                  D = Log frames decoded with zero errors\n"
+      "                  c = Log frames with bad CRC\n"
+      "                  C = Log frames with good CRC\n"
+      "                  p = Log frames with bad preamble\n"
+      "                  n = Log network debugging info\n"
+      "                  j = Log frames to frames.js, loadable by debug.html\n"
          );
 }
 
@@ -3116,7 +3086,7 @@ void backgroundTasks(void) {
 
   // If Modes.aircrafts is not NULL, remove any stale aircraft
   if (Modes.aircrafts)
-    {interactiveRemoveStaleAircrafts();}
+  {interactiveRemoveStaleAircrafts();}
 
   // Refresh screen when in interactive mode
   if ((Modes.interactive) &&
@@ -3180,9 +3150,9 @@ int main(int argc, char **argv) {
       Modes.net_output_raw_rate = atoi(argv[++j]);
     } else if (!strcmp(argv[j],"--net-ro-port") && more) {
       if (Modes.beast) // Required for legacy backward compatibility
-        {Modes.net_output_beast_port = atoi(argv[++j]);;}
+      {Modes.net_output_beast_port = atoi(argv[++j]);;}
       else
-        {Modes.net_output_raw_port = atoi(argv[++j]);}
+      {Modes.net_output_raw_port = atoi(argv[++j]);}
     } else if (!strcmp(argv[j],"--net-ri-port") && more) {
       Modes.net_input_raw_port = atoi(argv[++j]);
     } else if (!strcmp(argv[j],"--net-bo-port") && more) {
@@ -3213,17 +3183,17 @@ int main(int argc, char **argv) {
       char *f = argv[++j];
       while(*f) {
         switch(*f) {
-        case 'D': Modes.debug |= MODES_DEBUG_DEMOD; break;
-        case 'd': Modes.debug |= MODES_DEBUG_DEMODERR; break;
-        case 'C': Modes.debug |= MODES_DEBUG_GOODCRC; break;
-        case 'c': Modes.debug |= MODES_DEBUG_BADCRC; break;
-        case 'p': Modes.debug |= MODES_DEBUG_NOPREAMBLE; break;
-        case 'n': Modes.debug |= MODES_DEBUG_NET; break;
-        case 'j': Modes.debug |= MODES_DEBUG_JS; break;
-        default:
-          fprintf(stderr, "Unknown debugging flag: %c\n", *f);
-          exit(1);
-          break;
+          case 'D': Modes.debug |= MODES_DEBUG_DEMOD; break;
+          case 'd': Modes.debug |= MODES_DEBUG_DEMODERR; break;
+          case 'C': Modes.debug |= MODES_DEBUG_GOODCRC; break;
+          case 'c': Modes.debug |= MODES_DEBUG_BADCRC; break;
+          case 'p': Modes.debug |= MODES_DEBUG_NOPREAMBLE; break;
+          case 'n': Modes.debug |= MODES_DEBUG_NET; break;
+          case 'j': Modes.debug |= MODES_DEBUG_JS; break;
+          default:
+            fprintf(stderr, "Unknown debugging flag: %c\n", *f);
+            exit(1);
+            break;
         }
         f++;
       }

@@ -39,11 +39,11 @@
 #include <time.h>
 
 
-// Power of two required
-#define MODES_ICAO_CACHE_LEN 1024
+int kTen90DefaultIcaoCacheSize = 1024;
+int kTen90DefaultIcaoCacheTtl = 60;
 
-// Time to live of cached addresses
-#define MODES_ICAO_CACHE_TTL 60
+int kTen90UnitFeet = 0;
+int kTen90UnitMeters = 1;
 
 
 // http://semver.org/
@@ -53,9 +53,8 @@ const char *Ten90GetVersion(void) {
 }
 
 
-// Decode a raw Mode S message demodulated as a stream of bytes by
-// detectModeS(), and split it into fields populating a
-// ten90_mode_s_message structure.
+// Decode a raw Mode S message demodulated as a stream of bytes and
+// split it into fields populating a Ten90Frame structure.
 
 int Ten90DecodeFrame(unsigned char *bytes,
                      Ten90Context *context,
@@ -87,15 +86,15 @@ int Ten90DecodeFrame(unsigned char *bytes,
     // DF-11's before using the results. Perhaps check the ICAO
     // against known aircraft, and check IID against known good
     // IID's. That's a TODO.
-    frame->corrected_bits = Ten90FixBitErrors(
+    frame->number_corrected_bits = Ten90FixBitErrors(
         bytes, frame->msg_number_bits, context->nfix_crc, frame->corrected);
 
     // If we correct, validate ICAO addr to help filter birthday
     // paradox solutions.
-    if (frame->corrected_bits) {
+    if (frame->number_corrected_bits) {
       uint32_t addr = (bytes[1] << 16) | (bytes[2] << 8) | (bytes[3]);
-      if (!Ten90IcaoAddressWasRecentlySeen(addr, context))
-        frame->corrected_bits = 0;
+      if (!Ten90IcaoAddressWasRecentlySeen(context, addr))
+        frame->number_corrected_bits = 0;
     }
   }
   // Note that most of the other computation happens *after* we fix
@@ -111,7 +110,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
     if (0 == frame->crc) {
       // DF 11 : if crc == 0 try to populate our ICAO addresses
       // whitelist.
-      Ten90AddRecentlySeenIcaoAddr(frame->addr, context);
+      Ten90AddRecentlySeenIcaoAddr(context, frame->addr);
     }
   } else if (frame->msg_type == 17) {
     // DF 17
@@ -122,7 +121,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
     if (0 == frame->crc) {
       // DF 17 : if crc == 0 try to populate our ICAO addresses
       // whitelist.
-      Ten90AddRecentlySeenIcaoAddr(frame->addr, context);
+      Ten90AddRecentlySeenIcaoAddr(context, frame->addr);
     }
 
   } else if (frame->msg_type == 18) {
@@ -134,7 +133,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
     if (0 == frame->crc) {
       // DF 18 : if crc == 0 try to populate our ICAO addresses
       // whitelist.
-      Ten90AddRecentlySeenIcaoAddr(frame->addr, context);
+      Ten90AddRecentlySeenIcaoAddr(context, frame->addr);
     }
 
   } else {
@@ -142,7 +141,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
     // recently seen ICAO addresses. If it matches one, then declare
     // the message as valid
     frame->addr  = frame->crc;
-    frame->crcok = Ten90IcaoAddressWasRecentlySeen(frame->crc, context);
+    frame->crcok = Ten90IcaoAddressWasRecentlySeen(context, frame->crc);
   }
 
   // Fields for DF0, DF16
@@ -381,7 +380,7 @@ void Ten90DecodeModeAFrame(Ten90Frame *frame, int mode_a) {
   // Not much else we can tell from a Mode A/C reply.  Just fudge up a
   // few bits to keep other code happy
   frame->crcok = 1;
-  frame->corrected_bits = 0;
+  frame->number_corrected_bits = 0;
 }
 
 // ========== Mode S detection and decoding
@@ -451,35 +450,38 @@ uint32_t Ten90ModeSChecksum(unsigned char *msg, int bits) {
 }
 
 
-/* Hash the ICAO address to index our cache of MODES_ICAO_CACHE_LEN
- * elements, that is assumed to be a power of two. */
-uint32_t Ten90IcaoCacheHashAddress(uint32_t a) {
+// Hash the ICAO address to index our cache of MODES_ICAO_CACHE_LEN
+// elements, that is assumed to be a power of two. */
+uint32_t Ten90IcaoCacheHashAddress(Ten90Context *context, uint32_t a) {
   /* The following three rounds wil make sure that every bit affects
    * every output bit with ~ 50% of probability. */
   a = ((a >> 16) ^ a) * 0x45d9f3b;
   a = ((a >> 16) ^ a) * 0x45d9f3b;
   a = ((a >> 16) ^ a);
-  return a & (MODES_ICAO_CACHE_LEN-1);
+  return a & (context->icao_cache_size - 1);
 }
 
-/* Add the specified entry to the cache of recently seen ICAO
- * addresses.  Note that we also add a timestamp so that we can make
- * sure that the entry is only valid for MODES_ICAO_CACHE_TTL
- * seconds. */
-void Ten90AddRecentlySeenIcaoAddr(uint32_t addr, Ten90Context *context) {
-  uint32_t h = Ten90IcaoCacheHashAddress(addr);
+
+// Add the specified entry to the cache of recently seen ICAO
+// addresses.  Note that we also add a timestamp so that we can make
+// sure that the entry is only valid for MODES_ICAO_CACHE_TTL seconds.
+
+void Ten90AddRecentlySeenIcaoAddr(Ten90Context *context, uint32_t addr) {
+  uint32_t h = Ten90IcaoCacheHashAddress(context, addr);
   context->icao_cache[h*2] = addr;
   context->icao_cache[h*2+1] = (uint32_t) time(NULL);
 }
 
-/* Returns 1 if the specified ICAO address was seen in a DF format with
- * proper checksum (not xored with address) no more than * MODES_ICAO_CACHE_TTL
- * seconds ago. Otherwise returns 0. */
-int Ten90IcaoAddressWasRecentlySeen(uint32_t addr, Ten90Context *context) {
-  uint32_t h = Ten90IcaoCacheHashAddress(addr);
+
+// Returns 1 if the specified ICAO address was seen in a DF format
+// with proper checksum (not xored with address) no more than *
+// MODES_ICAO_CACHE_TTL seconds ago. Otherwise returns 0.
+
+int Ten90IcaoAddressWasRecentlySeen(Ten90Context *context, uint32_t addr) {
+  uint32_t h = Ten90IcaoCacheHashAddress(context, addr);
   uint32_t a = context->icao_cache[h*2];
   uint32_t t = context->icao_cache[h*2+1];
-  return a && a == addr && time(NULL)-t <= MODES_ICAO_CACHE_TTL;
+  return a && a == addr && time(NULL) - t <= context->icao_cache_ttl;
 }
 
 
@@ -527,7 +529,7 @@ int Ten90DecodeAc13Field(int AC13Field, int *unit) {
   int q_bit = AC13Field & 0x0010;
 
   if (!m_bit) {
-    *unit = MODES_UNIT_FEET;
+    *unit = kTen90UnitFeet;
     if (q_bit) {
       // N is the 11 bit integer resulting from the removal of bit Q and M
       int n = ((AC13Field & 0x1F80) >> 2) |
@@ -542,7 +544,7 @@ int Ten90DecodeAc13Field(int AC13Field, int *unit) {
       return (100 * n);
     }
   } else {
-    *unit = MODES_UNIT_METERS;
+    *unit = kTen90UnitMeters;
     // TODO(wiseman): Implement altitude when meter unit is selected
   }
   return 0;
@@ -554,7 +556,7 @@ int Ten90DecodeAc13Field(int AC13Field, int *unit) {
 int Ten90DecodeAc12Field(int AC12Field, int *unit) {
   int q_bit  = AC12Field & 0x10;  // Bit 48 = Q
 
-  *unit = MODES_UNIT_FEET;
+  *unit = kTen90UnitFeet;
   if (q_bit) {
     // N is the 11 bit integer resulting from the removal of bit Q at bit 4
     int n = ((AC12Field & 0x0FE0) >> 1) |
@@ -648,53 +650,55 @@ int Ten90ModeSMessageLenByType(int type) {
 }
 
 
-/* Code for introducing a less CPU-intensive method of correcting
+/*
+ * Code for introducing a less CPU-intensive method of correcting
  * single bit errors.
  *
- * Makes use of the fact that the crc checksum is linear with respect to
- * the bitwise xor operation, i.e.
+ * Makes use of the fact that the crc checksum is linear with respect
+ * to the bitwise xor operation, i.e.
+ *
  *      crc(m^e) = (crc(m)^crc(e)
+ *
  * where m and e are the message resp. error bit vectors.
  *
  * Call crc(e) the syndrome.
  *
  * The code below works by precomputing a table of (crc(e), e) for all
- * possible error vectors e (here only single bit and double bit errors),
- * search for the syndrome in the table, and correct the then known error.
- * The error vector e is represented by one or two bit positions that are
- * changed. If a second bit position is not used, it is -1.
+ * possible error vectors e (here only single bit and double bit
+ * errors), search for the syndrome in the table, and correct the then
+ * known error.  The error vector e is represented by one or two bit
+ * positions that are changed. If a second bit position is not used,
+ * it is -1.
  *
- * Run-time is binary search in a sorted table, plus some constant overhead,
- * instead of running through all possible bit positions (resp. pairs of
- * bit positions).
- *
- *
- *
+ * Run-time is binary search in a sorted table, plus some constant
+ * overhead, instead of running through all possible bit positions
+ * (respective pairs of bit positions).
  */
+
 struct errorinfo {
   uint32_t syndrome;             // CRC syndrome
   int bits;                      // Number of bit positions to fix
   int pos[MODES_MAX_BITERRORS];  // Bit positions corrected by this syndrome
 };
 
-#define NERRORINFO \
-        (MODES_LONG_MSG_BITS+MODES_LONG_MSG_BITS*(MODES_LONG_MSG_BITS-1)/2)
+#define NERRORINFO                                                      \
+  (MODES_LONG_MSG_BITS+MODES_LONG_MSG_BITS*(MODES_LONG_MSG_BITS-1)/2)
 static struct errorinfo bitErrorTable[NERRORINFO];
 
 
 // Compare function as needed for stdlib's qsort and bsearch
 // functions.
 
-int cmpErrorInfo(const void *p0, const void *p1) {
-    struct errorinfo *e0 = (struct errorinfo*)p0;
-    struct errorinfo *e1 = (struct errorinfo*)p1;
-    if (e0->syndrome == e1->syndrome) {
-        return 0;
-    } else if (e0->syndrome < e1->syndrome) {
-        return -1;
-    } else {
-        return 1;
-    }
+static int CmpErrorInfo(const void *p0, const void *p1) {
+  struct errorinfo *e0 = (struct errorinfo*)p0;
+  struct errorinfo *e1 = (struct errorinfo*)p1;
+  if (e0->syndrome == e1->syndrome) {
+    return 0;
+  } else if (e0->syndrome < e1->syndrome) {
+    return -1;
+  } else {
+    return 1;
+  }
 }
 
 
@@ -706,42 +710,43 @@ int cmpErrorInfo(const void *p0, const void *p1) {
 //
 // Return number of fixed bits.
 
-int Ten90FixBitErrors(unsigned char *msg, int bits, int maxfix,
+int Ten90FixBitErrors(unsigned char *msg, int msg_number_bits, int maxfix,
                       char *fixedbits) {
-    struct errorinfo *pei;
-    struct errorinfo ei;
-    int bitpos, offset, res, i;
-    memset(&ei, 0, sizeof(struct errorinfo));
-    ei.syndrome = Ten90ModeSChecksum(msg, bits);
-    pei = bsearch(&ei, bitErrorTable, NERRORINFO,
-                  sizeof(struct errorinfo), cmpErrorInfo);
-    if (pei == NULL) {
-        return 0;  // No syndrome found
-    }
+  struct errorinfo *pei;
+  struct errorinfo ei;
+  int bitpos, offset, res, i;
 
-    // Check if the syndrome fixes more bits than we allow
-    if (maxfix < pei->bits) {
-        return 0;
-    }
+  memset(&ei, 0, sizeof(struct errorinfo));
+  ei.syndrome = Ten90ModeSChecksum(msg, msg_number_bits);
+  pei = bsearch(&ei, bitErrorTable, NERRORINFO,
+                sizeof(struct errorinfo), CmpErrorInfo);
+  if (pei == NULL) {
+    return 0;  // No syndrome found.
+  }
 
-    // Check that all bit positions lie inside the message length
-    offset = MODES_LONG_MSG_BITS-bits;
-    for (i = 0;  i < pei->bits;  i++) {
-            bitpos = pei->pos[i] - offset;
-            if ((bitpos < 0) || (bitpos >= bits)) {
-                    return 0;
-            }
-    }
+  // Check if the syndrome fixes more bits than we allow.
+  if (maxfix < pei->bits) {
+    return 0;
+  }
 
-    // Fix the bits
-    for (i = res = 0;  i < pei->bits;  i++) {
-            bitpos = pei->pos[i] - offset;
-            msg[bitpos >> 3] ^= (1 << (7 - (bitpos & 7)));
-            if (fixedbits) {
-                    fixedbits[res++] = bitpos;
-            }
+  // Check that all bit positions lie inside the message length.
+  offset = MODES_LONG_MSG_BITS - msg_number_bits;
+  for (i = 0;  i < pei->bits;  i++) {
+    bitpos = pei->pos[i] - offset;
+    if ((bitpos < 0) || (bitpos >= msg_number_bits)) {
+      return 0;
     }
-    return res;
+  }
+
+  // Fix the bits.
+  for (i = res = 0; i < pei->bits; i++) {
+    bitpos = pei->pos[i] - offset;
+    msg[bitpos >> 3] ^= (1 << (7 - (bitpos & 7)));
+    if (fixedbits) {
+      fixedbits[res++] = bitpos;
+    }
+  }
+  return res;
 }
 
 
@@ -749,26 +754,28 @@ int Ten90FixBitErrors(unsigned char *msg, int bits, int maxfix,
 // modifies the original buffer with the fixed version, and returns
 // the position of the error bit. Otherwise if fixing failed -1 is
 // returned.
+//
+// Can only be used for DF17.
 
-int Ten90FixSingleBitErrors(unsigned char *msg, int bits) {
+int Ten90FixSingleBitErrors(unsigned char *msg, int msg_number_bits) {
   int j;
   unsigned char aux[MODES_LONG_MSG_BYTES];
 
-  memcpy(aux, msg, bits/8);
+  memcpy(aux, msg, msg_number_bits / 8);
 
   // Do not attempt to error correct Bits 0-4. These contain the DF,
   // and must be correct because we can only error correct DF17
-  for (j = 5; j < bits; j++) {
-    int byte    = j/8;
+  for (j = 5; j < msg_number_bits; j++) {
+    int byte_idx = j/8;
     int bitmask = 1 << (7 - (j & 7));
-    aux[byte] ^= bitmask;  // Flip j-th bit
-    if (0 == Ten90ModeSChecksum(aux, bits)) {
+    aux[byte_idx] ^= bitmask;  // Flip j-th bit
+    if (0 == Ten90ModeSChecksum(aux, msg_number_bits)) {
       // The error is fixed. Overwrite the original buffer with the
-      // corrected sequence, and returns the error bit position
-      msg[byte] = aux[byte];
-      return (j);
+      // corrected sequence, and returns the error bit position.
+      msg[byte_idx] = aux[byte_idx];
+      return j;
     }
-    aux[byte] ^= bitmask;  // Flip j-th bit back again
+    aux[byte_idx] ^= bitmask;  // Flip j-th bit back again
   }
   return (-1);
 }
@@ -818,23 +825,23 @@ static void InitErrorInfo(Ten90Context *context) {
     }
     msg[bytepos0] ^= mask0;  // revert error0
   }
-  qsort(bitErrorTable, NERRORINFO, sizeof(struct errorinfo), cmpErrorInfo);
+  qsort(bitErrorTable, NERRORINFO, sizeof(struct errorinfo), CmpErrorInfo);
 
   // Test code: report if any syndrome appears at least twice. In this
   // case the correction cannot be done without ambiguity.
   // Tried it, does not happen for 1- and 2-bit errors.
   /*
     for (i = 1;  i < NERRORINFO;  i++) {
-        if (bitErrorTable[i-1].syndrome == bitErrorTable[i].syndrome) {
-            fprintf(stderr, "modesInitErrorInfo: Collision for syndrome %06x\n",
-                            (int)bitErrorTable[i].syndrome);
-        }
+    if (bitErrorTable[i-1].syndrome == bitErrorTable[i].syndrome) {
+    fprintf(stderr, "modesInitErrorInfo: Collision for syndrome %06x\n",
+    (int)bitErrorTable[i].syndrome);
+    }
     }
 
     for (i = 0;  i < NERRORINFO;  i++) {
-        printf("syndrome %06x    bit0 %3d    bit1 %3d\n",
-               bitErrorTable[i].syndrome,
-               bitErrorTable[i].pos0, bitErrorTable[i].pos1);
+    printf("syndrome %06x    bit0 %3d    bit1 %3d\n",
+    bitErrorTable[i].syndrome,
+    bitErrorTable[i].pos0, bitErrorTable[i].pos1);
     }
   */
 }
@@ -842,66 +849,66 @@ static void InitErrorInfo(Ten90Context *context) {
 
 /* Capability table. */
 static char *ca_str[8] = {
-    /* 0 */ "Level 1 (Survillance Only)",
-    /* 1 */ "Level 2 (DF0,4,5,11)",
-    /* 2 */ "Level 3 (DF0,4,5,11,20,21)",
-    /* 3 */ "Level 4 (DF0,4,5,11,20,21,24)",
-    /* 4 */ "Level 2+3+4 (DF0,4,5,11,20,21,24,code7 - is on ground)",
-    /* 5 */ "Level 2+3+4 (DF0,4,5,11,20,21,24,code7 - is on airborne)",
-    /* 6 */ "Level 2+3+4 (DF0,4,5,11,20,21,24,code7)",
-    /* 7 */ "Level 7 ???"
+  /* 0 */ "Level 1 (Survillance Only)",
+  /* 1 */ "Level 2 (DF0,4,5,11)",
+  /* 2 */ "Level 3 (DF0,4,5,11,20,21)",
+  /* 3 */ "Level 4 (DF0,4,5,11,20,21,24)",
+  /* 4 */ "Level 2+3+4 (DF0,4,5,11,20,21,24,code7 - is on ground)",
+  /* 5 */ "Level 2+3+4 (DF0,4,5,11,20,21,24,code7 - is on airborne)",
+  /* 6 */ "Level 2+3+4 (DF0,4,5,11,20,21,24,code7)",
+  /* 7 */ "Level 7 ???"
 };
 
 // DF 18 Control field table.
 static char *cf_str[8] = {
-    /* 0 */ "ADS-B ES/NT device with ICAO 24-bit address",
-    /* 1 */ "ADS-B ES/NT device with other address",
-    /* 2 */ "Fine format TIS-B",
-    /* 3 */ "Coarse format TIS-B",
-    /* 4 */ "TIS-B managment message",
-    /* 5 */ "TIS-B relay of ADS-B message with other address",
-    /* 6 */ "ADS-B rebroadcast using DF-17 message format",
-    /* 7 */ "Reserved"
+  /* 0 */ "ADS-B ES/NT device with ICAO 24-bit address",
+  /* 1 */ "ADS-B ES/NT device with other address",
+  /* 2 */ "Fine format TIS-B",
+  /* 3 */ "Coarse format TIS-B",
+  /* 4 */ "TIS-B managment message",
+  /* 5 */ "TIS-B relay of ADS-B message with other address",
+  /* 6 */ "ADS-B rebroadcast using DF-17 message format",
+  /* 7 */ "Reserved"
 };
 
 /* Flight status table. */
 static char *fs_str[8] = {
-    /* 0 */ "Normal, Airborne",
-    /* 1 */ "Normal, On the ground",
-    /* 2 */ "ALERT,  Airborne",
-    /* 3 */ "ALERT,  On the ground",
-    /* 4 */ "ALERT & Special Position Identification. Airborne or Ground",
-    /* 5 */ "Special Position Identification. Airborne or Ground",
-    /* 6 */ "Value 6 is not assigned",
-    /* 7 */ "Value 7 is not assigned"
+  /* 0 */ "Normal, Airborne",
+  /* 1 */ "Normal, On the ground",
+  /* 2 */ "ALERT,  Airborne",
+  /* 3 */ "ALERT,  On the ground",
+  /* 4 */ "ALERT & Special Position Identification. Airborne or Ground",
+  /* 5 */ "Special Position Identification. Airborne or Ground",
+  /* 6 */ "Value 6 is not assigned",
+  /* 7 */ "Value 7 is not assigned"
 };
 
 static char *getMEDescription(int es_type, int mesub) {
-    char *mename = "Unknown";
+  char *mename = "Unknown";
 
-    if (es_type >= 1 && es_type <= 4)
-        mename = "Aircraft Identification and Category";
-    else if (es_type >= 5 && es_type <= 8)
-        mename = "Surface Position";
-    else if (es_type >= 9 && es_type <= 18)
-        mename = "Airborne Position (Baro Altitude)";
-    else if (es_type == 19 && mesub >=1 && mesub <= 4)
-        mename = "Airborne Velocity";
-    else if (es_type >= 20 && es_type <= 22)
-        mename = "Airborne Position (GNSS Height)";
-    else if (es_type == 23 && mesub == 0)
-        mename = "Test Message";
-    else if (es_type == 24 && mesub == 1)
-        mename = "Surface System Status";
-    else if (es_type == 28 && mesub == 1)
-        mename = "Extended Squitter Aircraft Status (Emergency)";
-    else if (es_type == 28 && mesub == 2)
-        mename = "Extended Squitter Aircraft Status (1090ES TCAS RA)";
-    else if (es_type == 29 && (mesub == 0 || mesub == 1))
-        mename = "Target State and Status Message";
-    else if (es_type == 31 && (mesub == 0 || mesub == 1))
-        mename = "Aircraft Operational Status Message";
-    return mename;
+  if (es_type >= 1 && es_type <= 4)
+    mename = "Aircraft Identification and Category";
+  else if (es_type >= 5 && es_type <= 8)
+    mename = "Surface Position";
+  else if (es_type >= 9 && es_type <= 18)
+    mename = "Airborne Position (Baro Altitude)";
+  else if (es_type == 19 && mesub >=1 && mesub <= 4)
+    mename = "Airborne Velocity";
+  else if (es_type >= 20 && es_type <= 22)
+    mename = "Airborne Position (GNSS Height)";
+  else if (es_type == 23 && mesub == 0)
+    mename = "Test Message";
+  else if (es_type == 24 && mesub == 1)
+    mename = "Surface System Status";
+  else if (es_type == 28 && mesub == 1)
+    mename = "Extended Squitter Aircraft Status (Emergency)";
+  else if (es_type == 28 && mesub == 2)
+    mename = "Extended Squitter Aircraft Status (1090ES TCAS RA)";
+  else if (es_type == 29 && (mesub == 0 || mesub == 1))
+    mename = "Target State and Status Message";
+  else if (es_type == 31 && (mesub == 0 || mesub == 1))
+    mename = "Aircraft Operational Status Message";
+  return mename;
 }
 
 
@@ -940,14 +947,14 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
   if (frame->msg_type < 32)
     printf("CRC: %06x (%s)\n", (int)frame->crc, frame->crcok ? "ok" : "wrong");
 
-  if (frame->corrected_bits != 0)
-    printf("No. of bit errors fixed: %d\n", frame->corrected_bits);
+  if (frame->number_corrected_bits != 0)
+    printf("No. of bit errors fixed: %d\n", frame->number_corrected_bits);
 
   if (frame->msg_type == 0) {
     // DF 0
     printf("DF 0: Short Air-Air Surveillance.\n");
     printf("  Altitude       : %d %s\n", frame->altitude,
-           (frame->unit == MODES_UNIT_METERS) ? "meters" : "feet");
+           (frame->unit == kTen90UnitMeters) ? "meters" : "feet");
     printf("  ICAO Address   : %06x\n", frame->addr);
 
   } else if (frame->msg_type == 4 || frame->msg_type == 20) {
@@ -958,7 +965,7 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
     printf("  UM             : %d\n",
            (((frame->msg[1]  & 7) << 3) | (frame->msg[2] >> 5)));
     printf("  Altitude       : %d %s\n", frame->altitude,
-           (frame->unit == MODES_UNIT_METERS) ? "meters" : "feet");
+           (frame->unit == kTen90UnitMeters) ? "meters" : "feet");
     printf("  ICAO Address   : %06x\n", frame->addr);
 
     if (frame->msg_type == 20) {
@@ -1194,11 +1201,27 @@ void Ten90DisplayFrame(Ten90Frame *frame) {
 }
 
 
+// See http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+static int NearestPowerOf2(int n) {
+  n--;
+  n |= n >> 1;
+  n |= n >> 2;
+  n |= n >> 4;
+  n |= n >> 8;
+  n |= n >> 16;
+  n++;
+  return n;
+}
 
-int Ten90ContextInit(Ten90Context *context) {
+
+int Ten90ContextInit(Ten90Context *context, int icao_cache_size,
+                     int icao_cache_ttl) {
   memset(context, 0, sizeof(Ten90Context));
+  icao_cache_size = NearestPowerOf2(icao_cache_size);
+  context->icao_cache_size = icao_cache_size;
+  context->icao_cache_ttl = icao_cache_ttl;
   if ((context->icao_cache = (uint32_t *)calloc(
-          MODES_ICAO_CACHE_LEN * 2,
+          icao_cache_size * 2,
           sizeof(uint32_t))) == NULL) {
     return -1;
   }
