@@ -46,14 +46,14 @@ int kTen90UnitFeet = 0;
 int kTen90UnitMeters = 1;
 
 
-// http://semver.org/
+// Returns the library version.  See http://semver.org/
 
 const char *Ten90GetVersion(void) {
   return "2.0.0";
 }
 
 
-// Decode a raw Mode S message demodulated as a stream of bytes and
+// Decodes a raw Mode S message demodulated as a stream of bytes and
 // split it into fields populating a Ten90Frame structure.
 
 int Ten90DecodeFrame(unsigned char *bytes,
@@ -71,7 +71,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
   frame->msg_number_bits = Ten90ModeSMessageLenByType(frame->msg_type);
   frame->crc = Ten90ModeSChecksum(bytes, frame->msg_number_bits);
 
-  if ((frame->crc) && (context->nfix_crc) &&
+  if ((frame->crc) && (context->max_crc_fixes) &&
       ((frame->msg_type == 17) || (frame->msg_type == 18))) {
     //  if ((frame->crc) && (Modes.nfix_crc) && ((frame->msg_type == 11) ||
     //  (frame->msg_type == 17))) {
@@ -87,7 +87,8 @@ int Ten90DecodeFrame(unsigned char *bytes,
     // against known aircraft, and check IID against known good
     // IID's. That's a TODO.
     frame->number_corrected_bits = Ten90FixBitErrors(
-        bytes, frame->msg_number_bits, context->nfix_crc, frame->corrected);
+        bytes, frame->msg_number_bits, context->max_crc_fixes,
+        frame->corrected);
 
     // If we correct, validate ICAO addr to help filter birthday
     // paradox solutions.
@@ -241,7 +242,8 @@ int Ten90DecodeFrame(unsigned char *bytes,
           frame->flags |= MODES_ACFLAGS_ALTITUDE_VALID;
           frame->altitude = Ten90DecodeAc12Field(AC12Field, &frame->unit);
         }
-      } else {                      // Ground
+      } else {
+        // Ground
         int movement = ((bytes[4] << 4) | (bytes[5] >> 4)) & 0x007F;
         frame->flags |= MODES_ACFLAGS_AOG_VALID | MODES_ACFLAGS_AOG;
         if ((movement) && (movement < 125)) {
@@ -318,8 +320,10 @@ int Ten90DecodeFrame(unsigned char *bytes,
         if (airspeed) {
           frame->flags |= MODES_ACFLAGS_SPEED_VALID;
           --airspeed;
-          if (es_subtype == 4)  // If (supersonic) unit is 4 kts
-          {airspeed = airspeed << 2;}
+          if (es_subtype == 4) {
+            // If (supersonic) unit is 4 kts
+            airspeed = airspeed << 2;
+          }
           frame->velocity =  airspeed;
         }
 
@@ -357,35 +361,36 @@ int Ten90DecodeFrame(unsigned char *bytes,
 
 
 void Ten90DecodeModeAFrame(Ten90Frame *frame, int mode_a) {
-  // Valid Mode S DF's are DF-00 to DF-31.  so use 32 to indicate Mode
-  // A/C
+  // Valid Mode S DF's are DF-00 to DF-31, so use 32 to indicate Mode
+  // A/C.
   frame->msg_type = 32;
 
-  // Fudge up a Mode S style data stream
+  // Fudge up a Mode S style data stream.
   frame->msg_number_bits = 16;
   frame->msg[0] = (mode_a >> 8);
   frame->msg[1] = (mode_a);
 
   // Fudge an ICAO address based on Mode A (remove the Ident bit) Use
-  // an upper address byte of FF, since this is ICAO unallocated
+  // an upper address byte of FF, since this is ICAO unallocated.
   frame->addr = 0x00FF0000 | (mode_a & 0x0000FF7F);
 
-  // Set the Identity field to ModeA
+  // Set the Identity field to Mode A.
   frame->mode_a   = mode_a & 0x7777;
   frame->flags |= MODES_ACFLAGS_SQUAWK_VALID;
 
-  // Flag ident in flight status
+  // Flag ident in flight status.
   frame->fs = mode_a & 0x0080;
 
   // Not much else we can tell from a Mode A/C reply.  Just fudge up a
-  // few bits to keep other code happy
+  // few bits to keep other code happy.
   frame->crcok = 1;
   frame->number_corrected_bits = 0;
 }
 
+
 // ========== Mode S detection and decoding
 
-// Parity table for MODE S Messages.
+// Parity table for Mode S Messages.
 //
 // The table contains 112 elements, every element corresponds to a bit
 // set in the message, starting from the first bit of actual data
@@ -424,6 +429,7 @@ uint32_t modes_checksum_table[112] = {
   0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000
 };
 
+
 uint32_t Ten90ModeSChecksum(unsigned char *msg, int bits) {
   uint32_t crc = 0;
   uint32_t rem = 0;
@@ -432,7 +438,7 @@ uint32_t Ten90ModeSChecksum(unsigned char *msg, int bits) {
   uint32_t *pCRCTable = &modes_checksum_table[offset];
   int j;
 
-  // We don't really need to include the checksum itself
+  // We don't really need to include the checksum itself.
   bits -= 24;
   for (j = 0; j < bits; j++) {
     if ((j & 7) == 0)
@@ -450,11 +456,12 @@ uint32_t Ten90ModeSChecksum(unsigned char *msg, int bits) {
 }
 
 
-// Hash the ICAO address to index our cache of MODES_ICAO_CACHE_LEN
-// elements, that is assumed to be a power of two. */
+// Hash the ICAO address to index our cache (the size of which must be
+// a power of 2).
+
 uint32_t Ten90IcaoCacheHashAddress(Ten90Context *context, uint32_t a) {
-  /* The following three rounds wil make sure that every bit affects
-   * every output bit with ~ 50% of probability. */
+  // The following three rounds wil make sure that every bit affects
+  // every output bit with ~ 50% of probability.
   a = ((a >> 16) ^ a) * 0x45d9f3b;
   a = ((a >> 16) ^ a) * 0x45d9f3b;
   a = ((a >> 16) ^ a);
@@ -464,7 +471,7 @@ uint32_t Ten90IcaoCacheHashAddress(Ten90Context *context, uint32_t a) {
 
 // Add the specified entry to the cache of recently seen ICAO
 // addresses.  Note that we also add a timestamp so that we can make
-// sure that the entry is only valid for MODES_ICAO_CACHE_TTL seconds.
+// sure that the entry is only valid for until the TTL expires.
 
 void Ten90AddRecentlySeenIcaoAddr(Ten90Context *context, uint32_t addr) {
   uint32_t h = Ten90IcaoCacheHashAddress(context, addr);
@@ -474,8 +481,8 @@ void Ten90AddRecentlySeenIcaoAddr(Ten90Context *context, uint32_t addr) {
 
 
 // Returns 1 if the specified ICAO address was seen in a DF format
-// with proper checksum (not xored with address) no more than *
-// MODES_ICAO_CACHE_TTL seconds ago. Otherwise returns 0.
+// with proper checksum (not xored with address) recently.  Otherwise
+// returns 0.
 
 int Ten90IcaoAddressWasRecentlySeen(Ten90Context *context, uint32_t addr) {
   uint32_t h = Ten90IcaoCacheHashAddress(context, addr);
@@ -513,39 +520,38 @@ int Ten90DecodeId13Field(int ID13Field) {
   if (ID13Field & 0x0004) {hexGillham |= 0x0002;}  // Bit  2 = D2
   if (ID13Field & 0x0002) {hexGillham |= 0x0400;}  // Bit  1 = B4
   if (ID13Field & 0x0001) {hexGillham |= 0x0004;}  // Bit  0 = D4
-
   return (hexGillham);
 }
 
 
 // Decode the 13 bit AC altitude field (in DF 20 and others).  Returns
-// the altitude, and set 'unit' to either MODES_UNIT_METERS or
-// MDOES_UNIT_FEETS.
+// the altitude, and set 'unit' to either kTen90UnitMeters or
+// kTen90UnitFeet.
 
 int Ten90DecodeAc13Field(int AC13Field, int *unit) {
-  // set = meters, clear = feet
+  // set = meters, clear = feet.
   int m_bit = AC13Field & 0x0040;
-  // set = 25 ft encoding, clear = Gillham Mode C encoding
+  // set = 25 ft encoding, clear = Gillham Mode C encoding.
   int q_bit = AC13Field & 0x0010;
 
   if (!m_bit) {
     *unit = kTen90UnitFeet;
     if (q_bit) {
-      // N is the 11 bit integer resulting from the removal of bit Q and M
+      // N is the 11 bit integer resulting from the removal of bit Q and M.
       int n = ((AC13Field & 0x1F80) >> 2) |
               ((AC13Field & 0x0020) >> 1) |
               (AC13Field & 0x000F);
       // The final altitude is resulting number multiplied by 25, minus 1000.
       return ((n * 25) - 1000);
     } else {
-      // N is an 11 bit Gillham coded altitude
+      // N is an 11 bit Gillham coded altitude.
       int n = Ten90ModeAToModeC(Ten90DecodeId13Field(AC13Field));
       if (n < -12) {n = 0;}
       return (100 * n);
     }
   } else {
     *unit = kTen90UnitMeters;
-    // TODO(wiseman): Implement altitude when meter unit is selected
+    // TODO(wiseman): Implement altitude when meter unit is selected.
   }
   return 0;
 }
@@ -558,32 +564,34 @@ int Ten90DecodeAc12Field(int AC12Field, int *unit) {
 
   *unit = kTen90UnitFeet;
   if (q_bit) {
-    // N is the 11 bit integer resulting from the removal of bit Q at bit 4
+    // N is the 11 bit integer resulting from the removal of bit Q at bit 4.
     int n = ((AC12Field & 0x0FE0) >> 1) |
             (AC12Field & 0x000F);
     // The final altitude is the resulting number multiplied by 25, minus 1000.
     return ((n * 25) - 1000);
   } else {
-    // Make N a 13 bit Gillham coded altitude by inserting M=0 at bit 6
+    // Make N a 13 bit Gillham coded altitude by inserting M=0 at bit 6.
     int n = ((AC12Field & 0x0FC0) << 1) |
             (AC12Field & 0x003F);
     n = Ten90ModeAToModeC(Ten90DecodeId13Field(n));
     if (n < -12) {
       n = 0;
     }
-    return (100 * n);
+    return 100 * n;
   }
 }
 
 
-// Decode the 7 bit ground movement field PWL exponential style scale
+// Decode the 7 bit ground movement field PWL exponential style scale.
 
 int Ten90DecodeMovementField(int movement) {
   int gspeed;
 
-  // Note : movement codes 0,125,126,127 are all invalid, but they are
-  //        trapped for before this function is called.
-
+  // Movement codes 0,125,126,127 are all invalid.
+  if (0 == movement || 125 == movement || 126 == movement ||
+      127 == movement) {
+    return -1;
+  }
   if      (movement  > 123) gspeed = 199;  // > 175kt
   else if (movement  > 108) gspeed = ((movement - 108)  * 5) + 100;
   else if (movement  >  93) gspeed = ((movement -  93)  * 2) +  70;
@@ -591,18 +599,19 @@ int Ten90DecodeMovementField(int movement) {
   else if (movement  >  12) gspeed = ((movement -  11) >> 1) +   2;
   else if (movement  >   8) gspeed = ((movement -   6) >> 2) +   1;
   else                      gspeed = 0;
-
   return (gspeed);
 }
 
+
 // Input format is : 00:A4:A2:A1:00:B4:B2:B1:00:C4:C2:C1:00:D4:D2:D1
+
 int Ten90ModeAToModeC(unsigned int ModeA) {
   unsigned int FiveHundreds = 0;
   unsigned int OneHundreds  = 0;
 
   if ((ModeA & 0xFFFF888B) || ((ModeA & 0x000000F0) == 0)) {
-    // D1 set is illegal. D2 set is > 62700ft which is unlikely
-    // C1,,C4 cannot be Zero
+    // D1 set is illegal. D2 set is > 62700ft which is unlikely.
+    // C1,,C4 cannot be zero.
     return -9999;
   }
 
@@ -784,7 +793,7 @@ int Ten90FixSingleBitErrors(unsigned char *msg, int msg_number_bits) {
 // Compute the table of all syndromes for 1-bit and 2-bit error
 // vectors.
 
-static void InitErrorInfo(Ten90Context *context) {
+static void InitErrorInfo() {
   unsigned char msg[MODES_LONG_MSG_BYTES];
   int i, j, n;
   uint32_t crc;
@@ -804,24 +813,22 @@ static void InitErrorInfo(Ten90Context *context) {
     bitErrorTable[n].pos[1] = -1;
     n += 1;
 
-    if (context->nfix_crc > 1) {
-      for (j = i+1;  j < MODES_LONG_MSG_BITS;  j++) {
-        int bytepos1 = (j >> 3);
-        int mask1 = 1 << (7 - (j & 7));
-        msg[bytepos1] ^= mask1;  // create error1
-        crc = Ten90ModeSChecksum(msg, MODES_LONG_MSG_BITS);
-        if (n >= NERRORINFO) {
-          // fprintf(stderr,
-          //         "Internal error, too many entries, fix NERRORINFO\n");
-          break;
-        }
-        bitErrorTable[n].syndrome = crc;  // two bit error case
-        bitErrorTable[n].bits = 2;
-        bitErrorTable[n].pos[0] = i;
-        bitErrorTable[n].pos[1] = j;
-        n += 1;
-        msg[bytepos1] ^= mask1;  // revert error1
+    for (j = i+1;  j < MODES_LONG_MSG_BITS;  j++) {
+      int bytepos1 = (j >> 3);
+      int mask1 = 1 << (7 - (j & 7));
+      msg[bytepos1] ^= mask1;  // create error1
+      crc = Ten90ModeSChecksum(msg, MODES_LONG_MSG_BITS);
+      if (n >= NERRORINFO) {
+        // fprintf(stderr,
+        //         "Internal error, too many entries, fix NERRORINFO\n");
+        break;
       }
+      bitErrorTable[n].syndrome = crc;  // two bit error case
+      bitErrorTable[n].bits = 2;
+      bitErrorTable[n].pos[0] = i;
+      bitErrorTable[n].pos[1] = j;
+      n += 1;
+      msg[bytepos1] ^= mask1;  // revert error1
     }
     msg[bytepos0] ^= mask0;  // revert error0
   }

@@ -97,7 +97,7 @@ typedef struct {
   uint32_t *icao_cache;  // Recently seen ICAO addresses cache
   int icao_cache_size;
   int icao_cache_ttl;
-  int nfix_crc;          // Number of crc bit error(s) to correct
+  int max_crc_fixes;     // Number of crc bit error(s) to correct
 } Ten90Context;
 
 
