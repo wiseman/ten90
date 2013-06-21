@@ -45,20 +45,35 @@ int kTen90DefaultIcaoCacheTtl = 60;
 int kTen90UnitFeet = 0;
 int kTen90UnitMeters = 1;
 
+// Aircraft latitude & longitude is decoded.
 int kTen90FlagsLatLonValid =                  1 << 0;
+// Aircraft altitude is known.
 int kTen90FlagsAltitudeValid =                1 << 1;
+// Aircraft heading is known.
 int kTen90FlagsHeadingValid =                 1 << 2;
+// Aircraft speed is known.
 int kTen90FlagsSpeedValid =                   1 << 3;
+// Aircraft vertical rate is known.
 int kTen90FlagsVerticalRateValid =            1 << 4;
+// Aircraft Mode A squawk is known.
 int kTen90FlagsSquawkValid =                  1 << 5;
+// Aircraft callsign identity is known.
 int kTen90FlagsCallsignValid =                1 << 6;
+// Aircraft east/west speed is known.
 int kTen90FlagsEastWestSpeedValid =           1 << 7;
+// Aircraft north/south speed is known.
 int kTen90FlagsNorthSouthSpeedValid =         1 << 8;
+// Aircraft is on the ground.
 int kTen90FlagsAircraftOnGround =             1 << 9;
+// Aircraft "even" CPR-encoded position is known.
 int kTen90FlagsCprEvenValid =                 1 << 10;
+// Aircraft "odd" CPR-encoded position is known.
 int kTen90FlagsCprOddValid =                  1 << 11;
+// AicraftOnGround is valid?
 int kTen90FlagsAircraftOnGroundValid =        1 << 12;
+// Aircraft flight status is known.
 int kTen90FlagsFlightStatusValid =            1 << 13;
+// Aircraft east/west and north/south speeds are known.
 int kTen90FlagsNorthSouthEastWestSpeedValid = 1 << 14;
 
 
