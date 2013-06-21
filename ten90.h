@@ -135,7 +135,7 @@ typedef struct {
     int  altitude;
     int  unit;
     int  bFlags;                // Flags related to fields in this structure
-} Ten90Message;
+} Ten90Frame;
 
 /* ======================== function declarations ========================= */
 
@@ -146,9 +146,9 @@ extern "C" {
 const char* Ten90GetVersion();
 int Ten90ContextInit(Ten90Context *context);
 void Ten90ContextDestroy(Ten90Context *context);
-void Ten90DecodeModeAMessage(Ten90Message *mm, int ModeA);
+void Ten90DecodeModeAFrame(Ten90Frame *frame, int ModeA);
 int Ten90DecodeFrame(unsigned char *bytes, Ten90Context *context,
-                     Ten90Message *mm);
+                     Ten90Frame *frame);
 uint32_t Ten90ModeSChecksum(unsigned char *msg, int bits);
 void Ten90AddRecentlySeenIcaoAddr(uint32_t addr, Ten90Context*);
 int Ten90IcaoAddressWasRecentlySeen(uint32_t addr, Ten90Context*);
@@ -161,7 +161,7 @@ int Ten90ModeSMessageLenByType(int type);
 int Ten90FixBitErrors(unsigned char *msg, int bits, int maxfix, char *fixedbits);
 int Ten90FixSingleBitErrors(unsigned char *msg, int bits);
 int Ten90ModeAToModec(unsigned int ModeA);
-void Ten90DisplayModeSMessage(Ten90Message *mm);
+void Ten90DisplayFrame(Ten90Frame *frame);
 
 #ifdef __cplusplus
 }

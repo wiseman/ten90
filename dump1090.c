@@ -272,12 +272,12 @@ struct {                             // Internal state
 
 
 void interactiveShowData(void);
-struct aircraft* interactiveReceiveData(Ten90Message *mm);
+struct aircraft* interactiveReceiveData(Ten90Frame *mm);
 void modesSendAllClients  (int service, void *msg, int len);
-void modesSendRawOutput   (Ten90Message *mm);
-void modesSendBeastOutput (Ten90Message *mm);
-void modesSendSBSOutput   (Ten90Message *mm);
-void useModesMessage      (Ten90Message *mm);
+void modesSendRawOutput   (Ten90Frame *mm);
+void modesSendBeastOutput (Ten90Frame *mm);
+void modesSendSBSOutput   (Ten90Frame *mm);
+void useModesMessage      (Ten90Frame *mm);
 
 /* ============================= Utility functions ========================== */
 
@@ -1019,7 +1019,7 @@ static uint32_t ModeAMidTable[24] = {
 // in two adjacent samples must be from the same pulse, so we can simply
 // add the values together..
 //
-int DetectModeA(uint16_t *m, Ten90Message *mm)
+int DetectModeA(uint16_t *m, Ten90Frame *mm)
 {
   int j, lastBitWasOne;
   int ModeABits = 0;
@@ -1204,7 +1204,7 @@ int DetectModeA(uint16_t *m, Ten90Message *mm)
  * size 'mlen' bytes. Every detected Mode S message is convert it into a
  * stream of bits and passed to the function to display it. */
 void detectModeS(uint16_t *m, uint32_t mlen) {
-  Ten90Message mm;
+  Ten90Frame mm;
   unsigned char msg[MODES_LONG_MSG_BYTES], *pMsg;
   uint16_t aux[MODES_LONG_MSG_SAMPLES];
   uint32_t j;
@@ -1263,7 +1263,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
                 mm.timestampMsg = Modes.timestampBlk + ((j+1) * 6);
 
                 // Decode the received message
-                Ten90DecodeModeAMessage(&mm, ModeA);
+                Ten90DecodeModeAFrame(&mm, ModeA);
 
                 // Pass data to the next layer
                 useModesMessage(&mm);
@@ -1574,7 +1574,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 // Basically this function passes a raw message to the upper layers for further
 // processing and visualization
 //
-void useModesMessage(Ten90Message *mm) {
+void useModesMessage(Ten90Frame *mm) {
   if ((Modes.check_crc == 0) || (mm->crcok) || (mm->correctedbits)) { // not checking, ok or fixed
 
     // Track aircrafts if...
@@ -1587,7 +1587,7 @@ void useModesMessage(Ten90Message *mm) {
 
     // In non-interactive non-quiet mode, display messages on standard output
     if (!Modes.interactive && !Modes.quiet) {
-      Ten90DisplayModeSMessage(mm);
+      Ten90DisplayFrame(mm);
     }
 
     // Feed output clients
@@ -1602,7 +1602,7 @@ void useModesMessage(Ten90Message *mm) {
 // Return a new aircraft structure for the interactive mode linked list
 // of aircraft
 //
-struct aircraft *interactiveCreateAircraft(Ten90Message *mm) {
+struct aircraft *interactiveCreateAircraft(Ten90Frame *mm) {
   struct aircraft *a = (struct aircraft *) malloc(sizeof(*a));
 
   // Default everything to zero/NULL
@@ -1942,7 +1942,7 @@ int decodeCPRrelative(struct aircraft *a, int fflag, int surface) {
 }
 
 /* Receive new messages and populate the interactive mode with more info. */
-struct aircraft *interactiveReceiveData(Ten90Message *mm) {
+struct aircraft *interactiveReceiveData(Ten90Frame *mm) {
   struct aircraft *a, *aux;
 
   // Return if (checking crc) AND (not crcok) AND (not fixed)
@@ -2367,7 +2367,7 @@ void modesSendAllClients(int service, void *msg, int len) {
 }
 
 /* Write raw output in Beast Binary format with Timestamp to TCP clients */
-void modesSendBeastOutput(Ten90Message *mm) {
+void modesSendBeastOutput(Ten90Frame *mm) {
   char *p = &Modes.beastOut[Modes.beastOutUsed];
   int  msgLen = mm->msgbits / 8;
   char * pTimeStamp;
@@ -2402,7 +2402,7 @@ void modesSendBeastOutput(Ten90Message *mm) {
 }
 
 /* Write raw output to TCP clients. */
-void modesSendRawOutput(Ten90Message *mm) {
+void modesSendRawOutput(Ten90Frame *mm) {
   char *p = &Modes.rawOut[Modes.rawOutUsed];
   int  msgLen = mm->msgbits / 8;
   int j;
@@ -2439,7 +2439,7 @@ void modesSendRawOutput(Ten90Message *mm) {
 // Write SBS output to TCP clients
 // The message structure mm->bFlags tells us what has been updated by this message
 //
-void modesSendSBSOutput(Ten90Message *mm) {
+void modesSendSBSOutput(Ten90Frame *mm) {
   char msg[256], *p = msg;
   uint32_t     offset;
   struct timeb epocTime;
@@ -2608,7 +2608,7 @@ static int hexDigitVal(int c) {
 // connection.
 
 int decodeHexMessage(struct client *c, char *hex) {
-  Ten90Message mm;
+  Ten90Frame mm;
   int l = strlen(hex), j;
   unsigned char msg[MODES_LONG_MSG_BYTES];
 
@@ -2687,7 +2687,7 @@ int decodeHexMessage(struct client *c, char *hex) {
 
   if (l == (MODEAC_MSG_BYTES * 2)) {
     // ModeA or ModeC
-    Ten90DecodeModeAMessage(&mm, ((msg[0] << 8) | msg[1]));
+    Ten90DecodeModeAFrame(&mm, ((msg[0] << 8) | msg[1]));
   } else {
     // Assume ModeS
     Ten90DecodeFrame(msg, &Modes.ctx, &mm);
@@ -2711,7 +2711,7 @@ int decodeHexMessage(struct client *c, char *hex) {
 // connection.
 
 int decodeBinMessage(struct client *c, char *p) {
-  Ten90Message mm;
+  Ten90Frame mm;
   int msgLen = 0;
   unsigned char msg[MODES_LONG_MSG_BYTES];
 
@@ -2735,7 +2735,7 @@ int decodeBinMessage(struct client *c, char *p) {
     memcpy(msg, p, msgLen); // and the data
 
     if (msgLen == MODEAC_MSG_BYTES) { // ModeA or ModeC
-      Ten90DecodeModeAMessage(&mm, ((msg[0] << 8) | msg[1]));
+      Ten90DecodeModeAFrame(&mm, ((msg[0] << 8) | msg[1]));
     } else {
       Ten90DecodeFrame(msg, &Modes.ctx, &mm);
     }
