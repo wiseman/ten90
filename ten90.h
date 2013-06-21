@@ -35,7 +35,6 @@
 
 #include <stdint.h>
 
-/* ============================= #defines =============================== */
 
 // When changing, change also fixBitErrors() and modesInitErrorTable() !!
 #define MODES_MAX_BITERRORS      2          // Global max for fixable bit errors
@@ -90,22 +89,23 @@
 #define MODES_ACFLAGS_LLBOTH_VALID   (MODES_ACFLAGS_LLEVEN_VALID | MODES_ACFLAGS_LLODD_VALID)
 #define MODES_ACFLAGS_AOG_GROUND     (MODES_ACFLAGS_AOG_VALID    | MODES_ACFLAGS_AOG)
 
-/* ======================== structure declarations ========================= */
 
-  typedef struct {
-    uint32_t *icao_cache;      // Recently seen ICAO addresses cache
-    int nfix_crc;                  // Number of crc bit error(s) to correct
-  } Ten90Context;
+typedef struct {
+  uint32_t *icao_cache;  // Recently seen ICAO addresses cache
+  int nfix_crc;          // Number of crc bit error(s) to correct
+} Ten90Context;
+
 
 // The struct we use to store information about a decoded message.
+
 typedef struct {
   // Generic fields
   unsigned char msg[MODES_LONG_MSG_BYTES];  // Binary message.
-  int           msg_number_bits;            // Number of bits in message
-  int           msg_type;                   // Downlink format #
-  int           crcok;                      // True if CRC was valid
-  uint32_t      crc;                        // Message CRC
-  int           corrected_bits;             // No. of bits corrected
+  int           msg_number_bits;      // Number of bits in message
+  int           msg_type;             // Downlink format #
+  int           crcok;                // True if CRC was valid
+  uint32_t      crc;                  // Message CRC
+  int           corrected_bits;       // No. of bits corrected
   char          corrected[MODES_MAX_BITERRORS];  // corrected bit positions
   uint32_t      addr;                 // ICAO Address from bytes 1 2 and 3
   int           phase_corrected;      // True if phase correction was applied
@@ -145,7 +145,6 @@ typedef struct {
   int  flags;                 // Flags related to fields in this structure
 } Ten90Frame;
 
-/* ======================== function declarations ========================= */
 
 #ifdef __cplusplus
 extern "C" {
@@ -169,7 +168,7 @@ extern "C" {
   int Ten90FixBitErrors(unsigned char *msg, int bits, int maxfix,
                         char *fixedbits);
   int Ten90FixSingleBitErrors(unsigned char *msg, int bits);
-  int Ten90ModeAToModec(unsigned int ModeA);
+  int Ten90ModeAToModeC(unsigned int ModeA);
   void Ten90DisplayFrame(Ten90Frame *frame);
 
 #ifdef __cplusplus
