@@ -54,23 +54,20 @@ const char *Ten90GetVersion(void) {
 
 
 // Decodes a raw Mode S message demodulated as a stream of bytes and
-// split it into fields populating a Ten90Frame structure.
+// splits it into fields populating a Ten90Frame structure.
 
 int Ten90DecodeFrame(unsigned char *bytes,
                      Ten90Context *context,
                      Ten90Frame *frame) {
   char *ais_charset = "?ABCDEFGHIJKLMNOPQRSTUVWXYZ????? "
                       "???????????????0123456789??????";
-
   // Work on our local copy
   memcpy(frame->msg, bytes, MODES_LONG_MSG_BYTES);
   bytes = frame->msg;
-
   // Get the message type ASAP as other operations depend on this
-  frame->msg_type = bytes[0] >> 3;  // Downlink Format
+  frame->msg_type = bytes[0] >> 3;  // Downlink Format (DF)
   frame->msg_number_bits = Ten90ModeSMessageLenByType(frame->msg_type);
   frame->crc = Ten90ModeSChecksum(bytes, frame->msg_number_bits);
-
   if ((frame->crc) && (context->max_crc_bit_corrections) &&
       ((frame->msg_type == 17) || (frame->msg_type == 18))) {
     //  if ((frame->crc) && (Modes.nfix_crc) && ((frame->msg_type == 11) ||
