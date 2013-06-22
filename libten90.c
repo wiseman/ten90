@@ -92,6 +92,7 @@ int Ten90DecodeFrame(unsigned char *bytes,
                      Ten90Frame *frame) {
   char *ais_charset = "?ABCDEFGHIJKLMNOPQRSTUVWXYZ????? "
                       "???????????????0123456789??????";
+  memset(frame, 0, sizeof(Ten90Frame));
   // Work on our local copy
   memcpy(frame->msg, bytes, MODES_LONG_MSG_BYTES);
   bytes = frame->msg;
@@ -716,18 +717,18 @@ int Ten90ModeSMessageLenByType(int type) {
  * (respective pairs of bit positions).
  */
 
-struct errorinfo {
+typedef struct {
   uint32_t syndrome;             // CRC syndrome
   int bits;                      // Number of bit positions to fix
   int pos[MODES_MAX_BITERRORS];  // Bit positions corrected by this syndrome
-};
+} BitErrorInfo;
 
 #define NERRORINFO                                                      \
   (MODES_LONG_MSG_BITS+MODES_LONG_MSG_BITS*(MODES_LONG_MSG_BITS-1)/2)
-static struct errorinfo bitErrorTable[NERRORINFO];
+static BitErrorInfo bitErrorTable[NERRORINFO];
 
 
-static DumpErrorInfo() {
+static void DumpErrorInfo() {
   int i, j;
   for (i = 0; i < NERRORINFO; i++) {
     fprintf(stderr, "%x %x ", bitErrorTable[i].syndrome, bitErrorTable[i].bits);
@@ -742,8 +743,8 @@ static DumpErrorInfo() {
 // functions.
 
 static int CmpErrorInfo(const void *p0, const void *p1) {
-  struct errorinfo *e0 = (struct errorinfo*)p0;
-  struct errorinfo *e1 = (struct errorinfo*)p1;
+  BitErrorInfo *e0 = (BitErrorInfo*)p0;
+  BitErrorInfo *e1 = (BitErrorInfo*)p1;
   if (e0->syndrome == e1->syndrome) {
     return 0;
   } else if (e0->syndrome < e1->syndrome) {
@@ -764,14 +765,14 @@ static int CmpErrorInfo(const void *p0, const void *p1) {
 
 int Ten90FixBitErrors(unsigned char *msg, int msg_number_bits, int maxfix,
                       char *fixedbits) {
-  struct errorinfo *pei;
-  struct errorinfo ei;
+  BitErrorInfo *pei;
+  BitErrorInfo ei;
   int bitpos, offset, res, i;
 
-  memset(&ei, 0, sizeof(struct errorinfo));
+  memset(&ei, 0, sizeof(BitErrorInfo));
   ei.syndrome = Ten90ModeSChecksum(msg, msg_number_bits);
   pei = bsearch(&ei, bitErrorTable, NERRORINFO,
-                sizeof(struct errorinfo), CmpErrorInfo);
+                sizeof(BitErrorInfo), CmpErrorInfo);
   if (pei == NULL) {
     return 0;  // No syndrome found.
   }
@@ -798,6 +799,7 @@ int Ten90FixBitErrors(unsigned char *msg, int msg_number_bits, int maxfix,
       fixedbits[res++] = bitpos;
     }
   }
+  fprintf(stderr, "fixed %d bits\n", res);
   return res;
 }
 
@@ -875,7 +877,7 @@ static void InitErrorInfo() {
     }
     msg[bytepos0] ^= mask0;  // revert error0
   }
-  qsort(bitErrorTable, NERRORINFO, sizeof(struct errorinfo), CmpErrorInfo);
+  qsort(bitErrorTable, NERRORINFO, sizeof(BitErrorInfo), CmpErrorInfo);
 
   // Test code: report if any syndrome appears at least twice. In this
   // case the correction cannot be done without ambiguity.
